@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck, lint e testes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Testes + cobertura minima
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+        env:
+          # Valores de placeholder: o build nao acessa o Supabase, so precisa
+          # que as variaveis existam para passar na validacao com zod.
+          NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: chave-de-placeholder-para-o-build-ci
+          SUPABASE_SERVICE_ROLE_KEY: chave-de-placeholder-para-o-build-ci

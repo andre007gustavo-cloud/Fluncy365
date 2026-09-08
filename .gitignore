@@ -1,0 +1,41 @@
+# dependencias
+node_modules
+.pnp
+.pnp.js
+
+# build
+.next
+out
+build
+next-env.d.ts
+*.tsbuildinfo
+
+# testes
+coverage
+
+# service worker gerado pelo Serwist
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+
+# variaveis de ambiente (NUNCA commitar)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# supabase cli
+supabase/.branches
+supabase/.temp
+.supabase
+
+# editores e sistema
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+
+# vercel
+.vercel

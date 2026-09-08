@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ---------------------------------------------------------------------
+     Tokens de design - Fase 0, item 9.
+     Canais HSL (sem hsl()) para permitir opacidade nos utilitarios Tailwind.
+     --------------------------------------------------------------------- */
+  :root {
+    --color-background: 40 33% 98%;
+    --color-surface: 0 0% 100%;
+    --color-surface-raised: 40 25% 96%;
+    --color-foreground: 200 20% 12%;
+    --color-muted: 200 10% 42%;
+    --color-border: 200 14% 88%;
+
+    --color-brand: 172 62% 32%;
+    --color-brand-strong: 172 66% 24%;
+    --color-brand-soft: 172 45% 93%;
+    --color-brand-contrast: 0 0% 100%;
+
+    --color-accent: 33 92% 50%;
+    --color-accent-soft: 33 90% 94%;
+    --color-accent-contrast: 30 60% 12%;
+
+    --color-success: 152 55% 36%;
+    --color-danger: 358 62% 48%;
+    --color-warning: 38 88% 45%;
+
+    --color-shadow: 200 30% 20%;
+
+    color-scheme: light;
+  }
+
+  .dark {
+    --color-background: 205 30% 9%;
+    --color-surface: 205 26% 13%;
+    --color-surface-raised: 205 24% 17%;
+    --color-foreground: 40 25% 95%;
+    --color-muted: 205 12% 66%;
+    --color-border: 205 18% 26%;
+
+    --color-brand: 172 52% 52%;
+    --color-brand-strong: 172 58% 62%;
+    --color-brand-soft: 172 40% 18%;
+    --color-brand-contrast: 205 40% 8%;
+
+    --color-accent: 33 90% 60%;
+    --color-accent-soft: 33 45% 20%;
+    --color-accent-contrast: 30 60% 10%;
+
+    --color-success: 152 45% 55%;
+    --color-danger: 358 70% 66%;
+    --color-warning: 38 85% 60%;
+
+    --color-shadow: 205 60% 2%;
+
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Foco visivel e consistente em todo o app (acessibilidade, RNF06). */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-background;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
