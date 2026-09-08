@@ -1,0 +1,5 @@
+# Padroniza as quebras de linha no repositorio (LF), evitando diffs falsos
+# entre Windows, Mac e o CI do GitHub.
+* text=auto eol=lf
+*.png binary
+*.ico binary
