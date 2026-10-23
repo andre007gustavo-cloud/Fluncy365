@@ -3,10 +3,12 @@
 ### App de inglês do zero ao avançado em 1 ano · 20 minutos por dia
 
 > **Codinome do projeto:** Fluente365 (nome provisório — pode ser trocado a qualquer momento)
-> **Versão do documento:** 1.1 · Setembro/2026
-> **Alteração desde a v1.0:** o banco de dados deixou de ser Firebase/Firestore e passou a ser
-> **Supabase (PostgreSQL + Auth + Row Level Security)**. Ver [`ADR-001`](./ADR-001-banco-de-dados.md).
-> Tudo o mais — pedagogia, currículo, arquitetura, contratos, custos — permanece igual.
+> **Versão do documento:** 1.2 · Outubro/2026
+> **Alterações:**
+>
+> - **v1.2:** um **tutor animado com voz natural**, personagem separado do avatar do aluno, entra na v1. Ver [`ADR-003`](./ADR-003-tutor-voz.md). Afeta as seções 1, 3, 4, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17 e 19. A Trilha de Imersão (RF11), que não tinha tarefa no roadmap, entrou na Fase 4.
+> - **v1.1:** o banco de dados deixou de ser Firebase/Firestore e passou a ser **Supabase (PostgreSQL + Auth + Row Level Security)**. Ver [`ADR-001`](./ADR-001-banco-de-dados.md).
+>
 > **Uso deste documento:** fonte única de verdade do projeto. Deve viver em `/docs/PLANEJAMENTO.md` no repositório e ser referenciado pelo `CLAUDE.md` para orientar o Claude Code em todas as fases.
 
 ---
@@ -49,6 +51,7 @@ Um tutor pessoal de inglês em forma de app: **20 minutos por dia, todos os dias
 - Material real: leituras, áudios e vídeos das publicações do jw.org em inglês (texto paralelo inglês/português e áudio narrado profissional);
 - Treino das 4 habilidades: leitura, escrita, escuta e fala;
 - Um agente de IA (API da Anthropic) que gera conteúdo sob especificação rigorosa, corrige produção livre, remedia erros específicos do aluno e conversa com ele;
+- Um **tutor animado com voz natural**, que explica as lições, comenta a produção e conversa com o aluno: um personagem próprio, separado do avatar do aluno (ver ADR-003);
 - Progresso medido de verdade (domínio por tópico e por habilidade), com dificuldade que evolui junto com o aluno;
 - Gamificação com propósito: avatar que evolui conforme o domínio comprovado, streak com proteção, relatórios semanais de progresso concreto.
 
@@ -114,15 +117,16 @@ Estes são os métodos que o app implementa — e que devem constar no system pr
 - RF11 — Trilha de Imersão opcional (registro de atividades extras).
 - RF12 — Notificações/lembretes de estudo.
 - RF13 — Painel do administrador (você): custos de IA, conteúdo gerado para revisão, progresso dos usuários.
+- RF14 — Tutor animado com voz natural: apresenta o app, explica a lição do dia, comenta a produção, faz o fechamento e conversa (fase 5), sempre com legenda e com opção de silenciar (ADR-003).
 
 ### 3.3 Requisitos não funcionais
 
 - RNF01 — PWA instalável, Lighthouse PWA ≥ 90; carregamento inicial < 3s em 4G.
 - RNF02 — Offline: revisões SRS e lições já baixadas funcionam sem rede; sincronização automática ao reconectar.
-- RNF03 — Segurança: chave da API da Anthropic **apenas** no servidor (variável de ambiente na Vercel); Row Level Security por usuário em todas as tabelas; rate limit por usuário no proxy de IA.
-- RNF04 — Custo de IA: teto mensal configurável; meta ≤ US$1,50/usuário ativo/mês.
+- RNF03 — Segurança: chaves da API da Anthropic e dos fornecedores de voz **apenas** no servidor (variável de ambiente na Vercel); Row Level Security por usuário em todas as tabelas; rate limit por usuário no proxy de IA.
+- RNF04 — Custo: teto mensal configurável; meta ≤ US$1,50/usuário ativo/mês para IA de texto e ≤ US$1,50/usuário ativo/mês para voz (TTS + STT, ver ADR-003 e seção 14.4).
 - RNF05 — Código: TypeScript estrito, Clean Architecture, princípios SOLID, cobertura de testes do domínio ≥ 80%.
-- RNF06 — Acessibilidade básica (contraste AA, navegação por teclado, textos alternativos).
+- RNF06 — Acessibilidade básica (contraste AA, navegação por teclado, textos alternativos, legenda em toda fala do tutor).
 - RNF07 — Privacidade: dados de progresso pertencem ao usuário; exportação e exclusão de conta disponíveis.
 
 ---
@@ -131,7 +135,7 @@ Estes são os métodos que o app implementa — e que devem constar no system pr
 
 ### 4.1 Onboarding
 
-Boas-vindas → explicação do método (1 tela) → nivelamento (seção 7) → escolha do horário de estudo e lembrete → apresentação do avatar no estágio inicial → primeira sessão.
+Boas-vindas (o tutor se apresenta, com voz e legenda) → explicação do método (1 tela) → nivelamento (seção 7) → escolha do horário de estudo e lembrete → apresentação do avatar do aluno no estágio inicial → primeira sessão.
 
 ### 4.2 Sessão diária (núcleo do app)
 
@@ -185,7 +189,17 @@ Registro rápido de atividades extras (ouvi um áudio, li um artigo, assisti reu
 
 ### 4.8 Administração (para você)
 
-Painel simples: custo de IA por dia/usuário, fila de conteúdo gerado para revisão (aprovar/editar/apagar), progresso agregado dos usuários, curadoria de links jw.org.
+Painel simples: custo de IA e de voz por dia/usuário, fila de conteúdo gerado para revisão (aprovar/editar/apagar), progresso agregado dos usuários, curadoria de links jw.org.
+
+### 4.9 O tutor animado
+
+Personagem 2D com identidade fixa (nome e visual definidos no chat antes da Fase 4) que encarna a persona do system prompt (seção 9.1) com voz natural. Ele **não** é o avatar do aluno: o tutor ensina; o avatar mostra o progresso de quem aprende (seção 10). Decisão completa no [`ADR-003`](./ADR-003-tutor-voz.md).
+
+- **Onde aparece:** apresenta o app no onboarding, explica a lição do dia, comenta a produção (escrita e fala), faz o fechamento e conversa no modo conversa (B1+, fase 5).
+- **Como fala:** explicações e enunciados vêm de áudio em cache, gerado uma vez e igual para todos, que funciona offline depois de baixado. Feedback individual e conversa são sintetizados na hora.
+- **Estados visuais:** parado, ouvindo, pensando, falando, comemorando e encorajando; a boca acompanha a fala.
+- **Sempre com legenda.** O aluno pode silenciar o tutor e seguir tudo em texto.
+- **Idiomas:** a mesma voz fala português (explicações para iniciantes) e inglês (exemplos e conversa).
 
 ---
 
@@ -221,13 +235,15 @@ Mapeado no CEFR, com a sequência gramatical inspirada na progressão dos livros
 
 Estrutura fixa com conteúdo variável (interleaving). O cronômetro é orientativo; blocos têm limites para a sessão não estourar.
 
-| Minutos | Bloco               | Conteúdo                                                                                                                           | Correção                 |
-| ------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| 0-3     | **Aquecimento SRS** | Revisões vencidas do dia (máx. 20 cartões; excedente vai para a fila)                                                              | Determinística           |
-| 3-8     | **Lição do dia**    | Micro-explicação do tópico gramatical (3-5 frases + 2 exemplos) e 4-6 exercícios de produção sobre ele                             | Determinística           |
-| 8-15    | **Input real**      | Trecho de artigo/áudio/vídeo do jw.org no nível; tarefa acoplada (compreensão, ditado ou shadowing)                                | Determinística + IA leve |
-| 15-19   | **Produção**        | Seg/Qua/Sex: escrita (2-5 frases sobre o input). Ter/Qui/Sáb: fala (leitura em voz alta ou shadowing avaliado; B1+: mini-conversa) | IA                       |
-| 19-20   | **Fechamento**      | Resumo do que entrou no SRS, XP, evolução do avatar, prévia de amanhã                                                              | —                        |
+| Minutos | Bloco               | Conteúdo                                                                                                                                                                    | Correção                 |
+| ------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| 0-3     | **Aquecimento SRS** | Revisões vencidas do dia (máx. 20 cartões; excedente vai para a fila)                                                                                                       | Determinística           |
+| 3-8     | **Lição do dia**    | Micro-explicação do tópico gramatical (3-5 frases + 2 exemplos), narrada pelo tutor com legenda, e 4-6 exercícios de produção sobre ele                                     | Determinística           |
+| 8-15    | **Input real**      | Trecho de artigo/áudio/vídeo do jw.org no nível; tarefa acoplada (compreensão, ditado ou shadowing)                                                                         | Determinística + IA leve |
+| 15-19   | **Produção**        | Seg/Qua/Sex: escrita (2-5 frases sobre o input). Ter/Qui/Sáb: fala (leitura em voz alta ou shadowing avaliado; B1+: mini-conversa com o tutor); o tutor comenta o resultado | IA                       |
+| 19-20   | **Fechamento**      | O tutor resume o dia: o que entrou no SRS, XP, evolução do avatar do aluno, prévia de amanhã                                                                                | —                        |
+
+**O tutor na sessão:** ele narra a explicação da lição, comenta a produção e faz o fechamento. Com o tutor silenciado, tudo aparece só em texto; nenhuma parte da sessão depende da voz.
 
 **Domingo:** sessão especial de revisão — SRS estendido + quiz da semana (10 questões dos tópicos recentes) + relatório semanal. Sem conteúdo novo.
 
@@ -302,16 +318,17 @@ O agente **não é um modelo treinado** — é a API da Anthropic orquestrada po
 2. **Spec da unidade** (do syllabus): objetivos, estruturas-alvo, vocabulário exato, erros a atacar, conteúdo jw.org da vez.
 3. **Perfil do aluno** (compacto): níveis, últimos erros, palavras fracas, o que já foi dominado.
 
-### 9.2 Os 6 serviços de IA
+### 9.2 Os serviços de IA e de voz
 
-| Serviço               | Quando roda                                    | Modelo sugerido               | Cache/compartilhado?                    |
-| --------------------- | ---------------------------------------------- | ----------------------------- | --------------------------------------- |
-| **ContentGenerator**  | 1ª vez que qualquer aluno chega a uma lição    | Haiku (batch quando possível) | ✅ Salvo no Supabase, reusado por todos |
-| **WritingCoach**      | Correção de escrita livre                      | Haiku                         | ❌ individual (chamada curta)           |
-| **SpeechCoach**       | Feedback sobre transcrição da fala             | Haiku                         | ❌ individual                           |
-| **Remediator**        | Tópico em dificuldade → mini-lição alternativa | Haiku                         | Parcial (por tipo de erro, reusável)    |
-| **PlacementAnalyzer** | Análise da escrita/fala no nivelamento         | Haiku                         | ❌ individual                           |
-| **ConversationTutor** | Modo conversa (fase 5)                         | Sonnet (qualidade de diálogo) | ❌ individual                           |
+| Serviço                       | Quando roda                                    | Modelo sugerido                                              | Cache/compartilhado?                                                          |
+| ----------------------------- | ---------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| **ContentGenerator**          | 1ª vez que qualquer aluno chega a uma lição    | Haiku (batch quando possível)                                | ✅ Salvo no Supabase, reusado por todos                                       |
+| **WritingCoach**              | Correção de escrita livre                      | Haiku                                                        | ❌ individual (chamada curta)                                                 |
+| **SpeechCoach**               | Feedback sobre transcrição da fala             | Haiku                                                        | ❌ individual                                                                 |
+| **Remediator**                | Tópico em dificuldade → mini-lição alternativa | Haiku                                                        | Parcial (por tipo de erro, reusável)                                          |
+| **PlacementAnalyzer**         | Análise da escrita/fala no nivelamento         | Haiku                                                        | ❌ individual                                                                 |
+| **ConversationTutor**         | Modo conversa (fase 5)                         | Sonnet (qualidade de diálogo)                                | ❌ individual                                                                 |
+| **TutorVoice** (voz, ADR-003) | Toda fala do tutor                             | Fish Audio (padrão) ou ElevenLabs; não é modelo de linguagem | ✅ Texto fixo em cache, reusado por todos; ❌ feedback e conversa individuais |
 
 ### 9.3 Pipeline de geração de conteúdo (gerar → validar → curar → reusar)
 
@@ -332,15 +349,24 @@ JSON: nota da rubrica (conteúdo/gramática/vocabulário 0-5), lista de erros `{
 - Temperatura baixa (0.3-0.5) para geração de exercícios; validação por schema em tudo.
 - Nenhum dado sensível do aluno vai para a IA além do necessário pedagógico (apelido, níveis, erros).
 
+### 9.6 Voz do tutor (ADR-003)
+
+- **Fluxo:** texto a ser falado (explicação, feedback ou turno de conversa) → proxy `/api/voz` → procura no cache (`tutor_audio_cache`; chave = hash de texto + idioma + voz + modelo) → se não houver, sintetiza no fornecedor configurado e salva no Supabase Storage → o cliente toca o áudio e anima a boca.
+- **Fornecedores atrás do `VoicePort`:** Fish Audio (padrão), ElevenLabs (alternativa) e Web Speech (reserva gratuita, offline e kill-switch). Trocar de fornecedor é configuração, não código.
+- **Guard-rails:** sessão do Supabase verificada; cota diária de fala do tutor na conversa (padrão 10 min por aluno; esgotada, a conversa segue em texto); caracteres e custo registrados em `admin_costs`; chaves só no servidor.
+- **Escuta do aluno (STT):** Web Speech onde existir; no iPhone e em falhas, o áudio vai ao proxy para transcrição pela API do fornecedor.
+- **Modo conversa falável:** o prompt do ConversationTutor exige turnos de 1 a 3 frases, sem listas, marcação ou emojis, para soar natural em voz.
+
 ---
 
 ## 10. Gamificação e avatar
 
 ### 10.1 Avatar evolutivo — regras
 
+- **O avatar não é o tutor.** O avatar representa o aluno e evolui com ele; o tutor (seção 4.9) é o professor, tem identidade fixa e é quem fala.
 - **Evolui por domínio comprovado, nunca por tempo de tela**: XP de evolução vem de tópicos masterizados, palavras consolidadas no SRS (intervalo ≥ 21 dias) e marcos de habilidade.
 - **7 estágios visuais** ligados ao CEFR: Semente (início) → Broto (A1) → Explorador (A2) → Viajante (B1) → Comunicador (B2) → Orador (C1) → Mestre (C2, aspiracional). Cada estágio muda visivelmente o personagem.
-- **Habilidades do avatar espelham as do aluno**: ao atingir B1 de fala, o avatar "ganha voz" (animação + desbloqueia o modo conversa); ao dominar 1.000 palavras, ganha a "mochila de palavras"; leitura B2 desbloqueia os "óculos de leitor".
+- **Habilidades do avatar espelham as do aluno**: ao atingir B1 de fala, o avatar "ganha voz" (uma animação simbólica: ele não fala de verdade) e desbloqueia o modo conversa com o tutor; ao dominar 1.000 palavras, ganha a "mochila de palavras"; leitura B2 desbloqueia os "óculos de leitor".
 - Implementação visual: personagem em **SVG por camadas** (corpo, roupa, acessórios, aura) — barato de produzir, animável com CSS/Framer Motion, e novos acessórios são só novas camadas.
 
 ### 10.2 Economia de XP
@@ -366,29 +392,29 @@ JSON: nota da rubrica (conteúdo/gramática/vocabulário 0-5), lista de erros `{
 
 ### 11.1 Stack
 
-| Camada       | Escolha                                                                           | Por quê                                                                                                           |
-| ------------ | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Front + PWA  | **Next.js 14+ (App Router) + TypeScript estrito + Tailwind**                      | Você já domina o ecossistema; PWA instalável; deploy trivial na Vercel                                            |
-| PWA/offline  | Serwist (service worker) + **IndexedDB via Dexie**                                | Sessões e SRS offline; sync ao reconectar                                                                         |
-| Estado       | Zustand (UI) + camada de casos de uso própria                                     | Simples, testável                                                                                                 |
-| Backend      | **API Routes da Vercel** (proxy de IA + webhooks)                                 | Sem servidor próprio; chave protegida em env var                                                                  |
-| Auth + Banco | **Supabase (Auth + PostgreSQL)**                                                  | Substitui Auth e banco num só produto; Row Level Security por usuário; SQL para as consultas do SRS (ver ADR-001) |
-| IA           | **API Anthropic** (Haiku 4.5; Sonnet no modo conversa)                            | Custo/qualidade; ver seção 14                                                                                     |
-| Voz          | **Web Speech API** (STT/TTS nativos, gratuitos) + MediaRecorder como fallback iOS | Custo zero na maioria dos casos                                                                                   |
-| Animação     | Framer Motion + SVG em camadas                                                    | Avatar e micro-interações                                                                                         |
-| Testes       | Vitest (domínio/aplicação) + Playwright (E2E)                                     | Cobertura exigida no RNF05                                                                                        |
-| Qualidade    | ESLint + Prettier + Husky (pre-commit) + CI no GitHub Actions                     | Padrão em todo commit                                                                                             |
+| Camada       | Escolha                                                                                                                                                 | Por quê                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Front + PWA  | **Next.js 14+ (App Router) + TypeScript estrito + Tailwind**                                                                                            | Você já domina o ecossistema; PWA instalável; deploy trivial na Vercel                                            |
+| PWA/offline  | Serwist (service worker) + **IndexedDB via Dexie**                                                                                                      | Sessões e SRS offline; sync ao reconectar                                                                         |
+| Estado       | Zustand (UI) + camada de casos de uso própria                                                                                                           | Simples, testável                                                                                                 |
+| Backend      | **API Routes da Vercel** (proxy de IA + webhooks)                                                                                                       | Sem servidor próprio; chave protegida em env var                                                                  |
+| Auth + Banco | **Supabase (Auth + PostgreSQL)**                                                                                                                        | Substitui Auth e banco num só produto; Row Level Security por usuário; SQL para as consultas do SRS (ver ADR-001) |
+| IA           | **API Anthropic** (Haiku 4.5; Sonnet no modo conversa)                                                                                                  | Custo/qualidade; ver seção 14                                                                                     |
+| Voz          | **`VoicePort`**: Fish Audio (padrão), ElevenLabs (alternativa), Web Speech (reserva gratuita e offline). STT: Web Speech + transcrição via proxy no iOS | Voz natural do tutor com custo controlado por cache; troca de fornecedor por configuração (ADR-003)               |
+| Animação     | Framer Motion + SVG em camadas                                                                                                                          | Avatar do aluno, tutor com boca sincronizada pela amplitude do áudio e micro-interações                           |
+| Testes       | Vitest (domínio/aplicação) + Playwright (E2E)                                                                                                           | Cobertura exigida no RNF05                                                                                        |
+| Qualidade    | ESLint + Prettier + Husky (pre-commit) + CI no GitHub Actions                                                                                           | Padrão em todo commit                                                                                             |
 
 ### 11.2 Clean Architecture — estrutura de pastas
 
 ```
 src/
   domain/                  # Zero dependências externas. Puro TS.
-    entities/              # Student, SrsCard, Exercise, Lesson, Session, Avatar, Streak
+    entities/              # Student, SrsCard, Exercise, Lesson, Session, Avatar, Streak, Tutor
     value-objects/         # CefrLevel, Skill, Difficulty, XP
     services/              # SrsScheduler, MasteryEvaluator, EloMatcher (lógica pura)
     ports/                 # Interfaces: AiTutorPort, ContentRepositoryPort,
-                           #   StudentRepositoryPort, SpeechPort, ClockPort
+                           #   StudentRepositoryPort, SpeechPort (ouvir), VoicePort (falar), ClockPort
   application/             # Casos de uso (1 arquivo = 1 caso de uso)
     generate-daily-session.ts
     evaluate-answer.ts
@@ -398,21 +424,24 @@ src/
     update-student-model.ts
     schedule-srs-reviews.ts
     evolve-avatar.ts
+    get-tutor-speech.ts    # fala do tutor: cache local → /api/voz → fornecedor
   infrastructure/          # Implementações dos ports
     supabase/              # SupabaseStudentRepository, SupabaseContentRepository
     anthropic/             # AnthropicAiTutor (via /api/tutor)
     speech/                # WebSpeechAdapter, MediaRecorderAdapter
+    voice/                 # FishAudioVoice, ElevenLabsVoice, WebSpeechVoice
     local/                 # DexieLocalStore, SyncEngine
   presentation/            # React. Não conhece infrastructure diretamente.
     app/                   # rotas Next (App Router)
-    components/            # UI (session player, exercícios, avatar, dashboards)
-    hooks/                 # useSession, useSrs, useAvatar
-  api/ (app/api/...)       # Proxy de IA, cron do relatório semanal
+    components/            # UI (session player, exercícios, avatar, tutor, dashboards)
+    hooks/                 # useSession, useSrs, useAvatar, useTutor
+  api/ (app/api/...)       # Proxies de IA (/api/tutor) e de voz (/api/voz), cron do relatório semanal
 content/
   syllabus/                # Specs das unidades (JSON/MD versionados)
   seed/                    # Lições manuais da Fase 1 (A1, 4 semanas)
 docs/
   PLANEJAMENTO.md          # Este documento
+  ADR-*.md                 # Decisões de arquitetura (ADR-001 banco, ADR-003 tutor e voz)
 CLAUDE.md                  # Convenções para o Claude Code
 ```
 
@@ -421,7 +450,7 @@ CLAUDE.md                  # Convenções para o Claude Code
 - **S**: cada caso de uso faz uma coisa; componentes de UI não contêm regra de negócio.
 - **O**: novo tipo de exercício = nova classe que implementa `Exercise` + novo renderer registrado; o session player e o avaliador não mudam.
 - **L**: qualquer `ExerciseEvaluator` é substituível sem quebrar o fluxo (determinístico e IA obedecem ao mesmo contrato de resultado).
-- **I**: ports pequenos e específicos (`SpeechPort` não sabe de IA; `AiTutorPort` não sabe de banco de dados).
+- **I**: ports pequenos e específicos (`SpeechPort` só ouve e `VoicePort` só fala, e nenhum dos dois sabe de IA; `AiTutorPort` não sabe de banco de dados).
 - **D**: `domain` e `application` dependem só de interfaces; `infrastructure` injeta implementações na borda (composition root em `src/di.ts`).
 
 ### 11.4 Fluxos críticos
@@ -429,6 +458,8 @@ CLAUDE.md                  # Convenções para o Claude Code
 **Sessão diária:** app abre → SyncEngine puxa StudentModel → `generate-daily-session` monta o plano (local) → player executa atividade a atividade → `evaluate-answer` (determinístico local; abertos vão ao proxy) → `complete-session` grava resultados, atualiza SRS/mastery/XP → sync.
 
 **Conteúdo:** player pede lição → ContentRepository busca no Supabase → não existe → proxy gera (seção 9.3) → salva → serve.
+
+**Fala do tutor:** componente pede a fala → `get-tutor-speech` → cache local (lições baixadas) → proxy `/api/voz` → cache no Supabase Storage → fornecedor → o áudio toca e a boca do tutor acompanha a amplitude.
 
 **Segurança do proxy:** request com cookie de sessão do Supabase → verificação com `supabase.auth.getUser()` → rate limit (contador em tabela Postgres) → chamada Anthropic com system prompt do servidor → log de tokens/custo → resposta validada → cliente.
 
@@ -441,26 +472,27 @@ CLAUDE.md                  # Convenções para o Claude Code
 > [`ADR-001`](./ADR-001-banco-de-dados.md). O schema executável é
 > `supabase/migrations/0001_initial_schema.sql` — ele é a fonte de verdade; a tabela abaixo é o resumo.
 
-| Tabela            | Chave                    | Conteúdo                                                                                 |
-| ----------------- | ------------------------ | ---------------------------------------------------------------------------------------- |
-| `profiles`        | `id` (= `auth.users.id`) | nome, `settings` (horário do lembrete, voz do TTS), datas                                |
-| `student_models`  | `user_id`                | `levels` por habilidade, `vocab_size`, `pace`                                            |
-| `topic_mastery`   | `user_id + topic_id`     | `accuracy`, `attempts`, `sessions`, `last_seen`, `status`                                |
-| `srs_cards`       | `id`                     | `front`, `back`, `type`, `ease`, `interval_days`, `due_at`, `lapses`, `source_lesson_id` |
-| `error_log`       | `user_id + code`         | `skill`, `example`, `count`, `last_at`                                                   |
-| `study_sessions`  | `user_id + day`          | `plan`, `results`, `xp`, `duration_sec`, `completed`, `rescue`                           |
-| `gamification`    | `user_id`                | `xp_total`, `evolution_xp`, `avatar_stage`, `unlocked_traits`, `streak`                  |
-| `content_units`   | `id`                     | espelho do syllabus: tópicos, vocabulário, erros PT-BR alvo, refs, critérios             |
-| `content_lessons` | `id`                     | `blocks`, `exercises`, `status` (`seed`/`auto`/`approved`), `version`                    |
-| `content_jw_refs` | `id`                     | `url`, `title`, `type`, `level`, `minutes`, `topics`                                     |
-| `admin_costs`     | `day`                    | `calls`, tokens de entrada/saída, `usd`, `by_service`                                    |
+| Tabela              | Chave                                         | Conteúdo                                                                                                             |
+| ------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `profiles`          | `id` (= `auth.users.id`)                      | nome, `settings` (horário do lembrete, tutor com voz ou silenciado), datas                                           |
+| `student_models`    | `user_id`                                     | `levels` por habilidade, `vocab_size`, `pace`                                                                        |
+| `topic_mastery`     | `user_id + topic_id`                          | `accuracy`, `attempts`, `sessions`, `last_seen`, `status`                                                            |
+| `srs_cards`         | `id`                                          | `front`, `back`, `type`, `ease`, `interval_days`, `due_at`, `lapses`, `source_lesson_id`                             |
+| `error_log`         | `user_id + code`                              | `skill`, `example`, `count`, `last_at`                                                                               |
+| `study_sessions`    | `user_id + day`                               | `plan`, `results`, `xp`, `duration_sec`, `completed`, `rescue`                                                       |
+| `gamification`      | `user_id`                                     | `xp_total`, `evolution_xp`, `avatar_stage`, `unlocked_traits`, `streak`                                              |
+| `content_units`     | `id`                                          | espelho do syllabus: tópicos, vocabulário, erros PT-BR alvo, refs, critérios                                         |
+| `content_lessons`   | `id`                                          | `blocks`, `exercises`, `status` (`seed`/`auto`/`approved`), `version`                                                |
+| `content_jw_refs`   | `id`                                          | `url`, `title`, `type`, `level`, `minutes`, `topics`                                                                 |
+| `admin_costs`       | `day`                                         | `calls`, tokens de entrada/saída, caracteres de voz, `usd`, `by_service` (inclui `tts` e `stt`)                      |
+| `tutor_audio_cache` | `key` (hash de texto + idioma + voz + modelo) | `storage_path`, `lang`, `voice_id`, `provider`, `chars`, `duration_ms`, `word_timings` (quando houver), `created_at` |
 
 Índice quente: `srs_cards (user_id, due_at)` — atende diretamente a consulta de abertura de toda
 sessão ("meus cartões vencidos, do mais antigo primeiro").
 
 **Regras de segurança (essência):** RLS ligada em **todas** as tabelas. Dados de aluno usam a policy
 `auth.uid() = user_id` para SELECT/INSERT/UPDATE/DELETE. As tabelas `content_*` são legíveis por
-qualquer autenticado e **não têm policy de escrita** — só a `service_role` (o proxy) grava.
+qualquer autenticado e **não têm policy de escrita** — só a `service_role` (o proxy) grava. A `tutor_audio_cache` segue a mesma regra.
 `admin_costs` exige o claim `admin` no JWT.
 
 ---
@@ -526,6 +558,32 @@ export interface SrsScheduler {
 export interface GenerateDailySession {
   execute(uid: string, date: Date): Promise<SessionPlan>;
 }
+
+// domain/ports/voice.port.ts  (I: só fala; não sabe de IA nem de banco — ADR-003)
+export interface VoicePort {
+  synthesize(req: SpeechRequest): Promise<SynthesizedSpeech>;
+  stream(req: SpeechRequest): AsyncIterable<SpeechChunk>; // modo conversa
+}
+
+export interface SpeechRequest {
+  text: string;
+  lang: "pt-BR" | "en-US";
+  voiceId: string; // voz do tutor (configuração)
+  cacheable: boolean; // texto fixo → cache compartilhado
+}
+
+export interface SynthesizedSpeech {
+  audioUrl: string; // Storage (cache) ou blob local
+  durationMs: number;
+  wordTimings?: { word: string; startMs: number; endMs: number }[]; // quando o fornecedor devolve
+  provider: "fish" | "elevenlabs" | "webspeech";
+  chars: number; // para o log de custo
+}
+
+// domain/entities/tutor.ts
+export type TutorState =
+  "idle" | "listening" | "thinking" | "speaking" | "celebrating" | "encouraging";
+export type MouthShape = "rest" | "A" | "E" | "O" | "U" | "MBP" | "FV"; // 6 formatos + repouso
 ```
 
 ---
@@ -550,7 +608,7 @@ export interface GenerateDailySession {
 | Modo conversa (B1+, Sonnet)           | ~12 sessões × 12k in (com caching) + 2k out | ~US$0,60                                              |
 | **Total**                             |                                             | **~US$0,15 (sem conversa) a ~US$0,80 (com conversa)** |
 
-Para 15 usuários da família: **~US$5-12/mês**. Margem de segurança do RNF04 (US$1,50/usuário) coberta com folga.
+Para 15 usuários da família: **~US$5-12/mês** só de IA de texto. Margem de segurança do RNF04 (US$1,50/usuário) coberta com folga. A voz do tutor é calculada à parte, na seção 14.4.
 
 ### 14.3 Controles obrigatórios
 
@@ -559,12 +617,28 @@ Para 15 usuários da família: **~US$5-12/mês**. Margem de segurança do RNF04 
 3. Teto mensal de gasto no console da Anthropic + crédito pré-pago (começar com US$5).
 4. Alerta por e-mail (cron Vercel) se o custo diário passar do limiar configurado.
 5. Kill-switch: flag em tabela de configuração desliga serviços de IA não essenciais mantendo o app funcional (conteúdo cacheado + exercícios determinísticos).
+6. Voz: cota diária de fala do tutor na conversa e kill-switch próprio, que troca os fornecedores pagos pela Web Speech (seção 14.4).
+
+### 14.4 Custos de voz (ADR-003)
+
+Preços de outubro/2026 (verificar sempre as páginas oficiais). Conversão: 1 minuto de fala ≈ 1.000 caracteres.
+
+| Uso por aluno ativo/mês           | Volume estimado                        | Fish Audio          | ElevenLabs Flash    |
+| --------------------------------- | -------------------------------------- | ------------------- | ------------------- |
+| Conversa com o tutor (B1+)        | ~12 conversas × 5 min de fala do tutor | ~US$0,90            | ~US$2,40            |
+| Feedback individual falado        | ~10 min                                | ~US$0,15            | ~US$0,40            |
+| Transcrição no iPhone (pela Fish) | até 1 h de fala do aluno               | até ~US$0,36        | até ~US$0,36        |
+| **Total por aluno**               |                                        | **~US$1,05 a 1,40** | **~US$2,80 a 3,15** |
+
+- **Conteúdo fixo em cache:** ~430 mil caracteres para o currículo inteiro (~288 lições), pagos uma vez: ~US$6,50 na Fish ou ~US$17 no ElevenLabs Flash.
+- **Para 15 usuários da família:** IA de texto ~US$5-12 + voz ~US$16-21 na Fish ≈ **US$21-33/mês**. Com o ElevenLabs Flash, a voz sobe para ~US$42-47/mês.
+- **Controles:** cache do conteúdo fixo; cota diária de fala na conversa; voz no painel de custos (`by_service`: `tts` e `stt`); kill-switch de voz que troca os fornecedores pagos pela Web Speech.
 
 ---
 
 ## 15. Roadmap detalhado
 
-Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como parceiro de implementação. Total: **~5 a 6 meses até o app completo**. As fases entregam valor incremental — a partir da Fase 1 o app já é usável diariamente.
+Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como parceiro de implementação. Total: **~6 a 7 meses até o app completo** (o tutor animado acrescentou ~3-4 semanas, ver ADR-003). As fases entregam valor incremental — a partir da Fase 1 o app já é usável diariamente.
 
 > **Trilha paralela de conteúdo (contínua):** enquanto o código avança, o syllabus detalhado dos meses 3-12 e a curadoria de links do jw.org são escritos em paralelo (com minha ajuda aqui no chat). A Fase 1 só precisa dos meses 1-2.
 
@@ -631,29 +705,32 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 
 ---
 
-### FASE 3 — Ouvido e voz (3-4 semanas)
+### FASE 3 — Ouvido e voz (4-5 semanas)
 
-**Objetivo:** as 4 habilidades treináveis; material real do jw.org integrado ao fluxo.
+**Objetivo:** as 4 habilidades treináveis; material real do jw.org integrado ao fluxo; a voz do tutor no ar, com cache e fornecedor escolhido.
 
 **Tarefas:**
 
 1. **Curadoria inicial jw.org:** planilha → `content/jwRefs` com 40-60 conteúdos classificados (A1-B1) entre artigos com áudio e vídeos com legenda; tela admin de curadoria.
 2. **Bloco Input Real do player:** leitura com áudio oficial (streaming da fonte), tarefa acoplada (compreensão/V-F geradas pela IA sobre o trecho, cacheadas por conteúdo).
 3. **Ditado:** player de trecho curto → digitação → correção diff palavra a palavra com destaque visual; níveis de ajuda (velocidade 0.75×, repetição).
-4. **TTS:** pronúncia de qualquer palavra/frase do app (Web Speech synthesis); botão de áudio nos cartões SRS.
-5. **STT — leitura em voz alta:** gravação → transcrição (Web Speech no Android/Chrome) → comparação com o alvo → score de inteligibilidade + feedback curto do SpeechCoach (IA) sobre os desvios.
-6. **Fallback iOS:** detecção de suporte; MediaRecorder grava e envia ao proxy para transcrição via API quando o STT nativo não estiver disponível; se nada disponível, a atividade degrada para shadowing auto-avaliado (ouvir → gravar → ouvir lado a lado → auto-marcar).
-7. **Shadowing:** UI dedicada (áudio original + minha gravação, replay alternado).
-8. **Rotação semanal completa** da seção 6 ativada (escrita e fala alternando).
+4. **Porta de voz e proxy `/api/voz` (ADR-003):** `VoicePort` com adaptadores Fish Audio, ElevenLabs e Web Speech; cache compartilhado em `tutor_audio_cache` + Supabase Storage; cota diária de fala; caracteres e custo em `admin_costs`; kill-switch de voz.
+5. **Teste cego de vozes:** a mesma fala em português e em inglês em cada fornecedor; você escolhe a voz do tutor; a escolha fica registrada no ADR-003.
+6. **TTS:** pronúncia de qualquer palavra/frase do app pelo `VoicePort` (com cache); botão de áudio nos cartões SRS.
+7. **Pré-geração do áudio** das explicações e enunciados dos meses 1-3, em lote, no cache compartilhado.
+8. **STT — leitura em voz alta:** gravação → transcrição (Web Speech no Android/Chrome) → comparação com o alvo → score de inteligibilidade + feedback curto do SpeechCoach (IA) sobre os desvios.
+9. **Fallback iOS:** detecção de suporte; MediaRecorder grava e envia ao proxy `/api/voz` para transcrição pela API do fornecedor quando o STT nativo não estiver disponível; se nada disponível, a atividade degrada para shadowing auto-avaliado (ouvir → gravar → ouvir lado a lado → auto-marcar).
+10. **Shadowing:** UI dedicada (áudio original + minha gravação, replay alternado).
+11. **Rotação semanal completa** da seção 6 ativada (escrita e fala alternando).
 
-**Entregáveis:** sessão diária cobre leitura, escuta, escrita e fala com material real.
-**Critérios de aceite:** ditado e leitura em voz alta funcionam no Android/Chrome; iOS tem caminho funcional (fallback testado em 1 iPhone real); latência do feedback de fala < 6s; 3 testers avaliam o bloco de fala como "útil" ou melhor.
+**Entregáveis:** sessão diária cobre leitura, escuta, escrita e fala com material real; a voz do tutor está pronta para entrar na sessão.
+**Critérios de aceite:** ditado e leitura em voz alta funcionam no Android/Chrome; iOS tem caminho funcional (fallback testado em 1 iPhone real); latência do feedback de fala < 6s; 3 testers avaliam o bloco de fala como "útil" ou melhor; a voz do tutor foi escolhida no teste cego; uma explicação tocada pela 2ª vez sai do cache, sem custo (conferido no painel).
 
 ---
 
-### FASE 4 — Motivação (3 semanas)
+### FASE 4 — Motivação (4-5 semanas)
 
-**Objetivo:** avatar evolutivo, relatórios e lembretes — o app fica bonito, vivo e difícil de abandonar.
+**Objetivo:** avatar evolutivo, tutor animado, relatórios e lembretes — o app fica bonito, vivo e difícil de abandonar.
 
 **Tarefas:**
 
@@ -663,29 +740,32 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 4. **Relatório semanal:** cálculo no domingo (cron da Vercel) → tela + e-mail opcional com os números concretos da semana.
 5. **Notificações:** Web Push (Android/desktop); iOS: orientação para adicionar à tela inicial + fallback de e-mail de lembrete.
 6. **Mural da turma** (opcional por usuário): streaks e estágios dos amigos, aplausos.
-7. **Polimento visual geral:** revisão de todas as telas com os design tokens; modo escuro; micro-animações de acerto/erro.
+7. **Tutor animado (ADR-003):** design do personagem feito aqui no chat (nome, visual, 6 formatos de boca + repouso, expressões); componente `TutorAvatar` em SVG por camadas com os estados da seção 4.9, boca guiada pela amplitude do áudio e legenda.
+8. **Tutor na sessão e no onboarding:** apresentação no onboarding; narração da lição do dia (áudio em cache, disponível offline nas lições baixadas); comentário falado da produção; fechamento falado.
+9. **Trilha de Imersão (seção 4.6):** registro rápido de atividades extras, XP de imersão (até 50/dia) e entrada no relatório semanal.
+10. **Polimento visual geral:** revisão de todas as telas com os design tokens; modo escuro; micro-animações de acerto/erro.
 
-**Entregáveis:** experiência completa de motivação.
-**Critérios de aceite:** evolução do avatar dispara nos marcos certos (testes de regras); relatório de domingo chega para todos os testers; taxa de sessão diária dos testers ≥ 70% nas 2 semanas seguintes (medida real de que a gamificação funciona).
+**Entregáveis:** experiência completa de motivação, com o tutor presente em toda sessão.
+**Critérios de aceite:** evolução do avatar dispara nos marcos certos (testes de regras); relatório de domingo chega para todos os testers; taxa de sessão diária dos testers ≥ 70% nas 2 semanas seguintes (medida real de que a gamificação funciona); a boca do tutor acompanha a fala sem atraso perceptível em Android e iPhone; uma lição baixada é narrada no modo avião; 3 testers avaliam o tutor como "agradável" ou melhor.
 
 ---
 
-### FASE 5 — Conversa e profundidade (4 semanas)
+### FASE 5 — Conversa e profundidade (5 semanas)
 
-**Objetivo:** o diferencial máximo — conversar com o tutor — e a profundidade B2/C1 do currículo em espiral.
+**Objetivo:** o diferencial máximo — conversar por voz com o tutor animado — e a profundidade B2/C1 do currículo em espiral.
 
 **Tarefas:**
 
 1. **ConversationTutor (texto):** conversa contextual ao material da semana; correção gentil por recast (o tutor reformula certo e segue), com "raio-x" opcional ao final listando os pontos corrigidos; memória curta do aluno (resumo de perfil injetado).
-2. **Conversa por voz:** TTS lê o tutor; aluno responde por STT; modo mãos-livres.
+2. **Conversa por voz com o tutor animado:** voz por streaming (`VoicePort.stream`); estados ouvindo → pensando → falando; turnos curtos (seção 9.6); aluno responde por STT; modo mãos-livres; boca guiada pela marcação de tempo quando o fornecedor a devolver (senão, pela amplitude); esgotada a cota diária de fala, a conversa segue em texto.
 3. **Roleplays:** cenários práticos (dar testemunho informal, apresentar-se, explicar um versículo, situações cotidianas) definidos no syllabus.
 4. **Espiral B2/C1:** specs dos meses 8-12 com as revisitas de profundidade; exercícios de nuance (escolher entre 2 formas corretas pela intenção).
 5. **Resumos orais/escritos avaliados por rubrica.**
-6. **Model routing:** conversa no Sonnet, resto no Haiku; medição de custo real do modo conversa e ajuste dos limites diários.
+6. **Model routing:** conversa no Sonnet, resto no Haiku; medição do custo real do modo conversa (texto e voz, seções 14.2 e 14.4) e ajuste dos limites diários e da cota de fala.
 7. **Marco trimestral:** mini-nivelamento comparativo com tela de evolução ("você subiu de A2.3 para B1.1 em leitura").
 
 **Entregáveis:** app completo em funcionalidades de aprendizado.
-**Critérios de aceite:** aluno B1 sustenta conversa de 5 min com correções úteis; tutor lembra erros recorrentes do aluno (verificável); custo do modo conversa dentro da estimativa; espiral aparece nos planos de sessão dos meses certos.
+**Critérios de aceite:** aluno B1 sustenta conversa de 5 min com correções úteis; tutor lembra erros recorrentes do aluno (verificável); custo do modo conversa (texto e voz) dentro das estimativas; a primeira fala do tutor começa em até ~3 s depois que o aluno termina (meta inicial); espiral aparece nos planos de sessão dos meses certos.
 
 ---
 
@@ -709,16 +789,16 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 
 ### Linha do tempo consolidada
 
-| Fase                        | Duração            | Marco                                 |
-| --------------------------- | ------------------ | ------------------------------------- |
-| 0 — Fundação                | 1 sem              | Casca no ar, CI, PWA                  |
-| 1 — MVP do hábito           | 4-6 sem            | Estudável (A1, sem IA)                |
-| 2 — Cérebro de IA           | 4 sem              | Conteúdo gerado + correção de escrita |
-| 3 — Ouvido e voz            | 3-4 sem            | 4 habilidades + jw.org                |
-| 4 — Motivação               | 3 sem              | Avatar, relatórios, lembretes         |
-| 5 — Conversa e profundidade | 4 sem              | Tutor conversacional, B2/C1           |
-| 6 — Lançamento              | 2-3 sem            | v1.0 com a família                    |
-| **Total**                   | **~21-25 semanas** | **App completo**                      |
+| Fase                        | Duração            | Marco                                        |
+| --------------------------- | ------------------ | -------------------------------------------- |
+| 0 — Fundação                | 1 sem              | Casca no ar, CI, PWA                         |
+| 1 — MVP do hábito           | 4-6 sem            | Estudável (A1, sem IA)                       |
+| 2 — Cérebro de IA           | 4 sem              | Conteúdo gerado + correção de escrita        |
+| 3 — Ouvido e voz            | 4-5 sem            | 4 habilidades + jw.org + voz do tutor        |
+| 4 — Motivação               | 4-5 sem            | Avatar, tutor animado, relatórios, lembretes |
+| 5 — Conversa e profundidade | 5 sem              | Conversa por voz com o tutor, B2/C1          |
+| 6 — Lançamento              | 2-3 sem            | v1.0 com a família                           |
+| **Total**                   | **~24-29 semanas** | **App completo**                             |
 
 ---
 
@@ -735,6 +815,10 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 | 7   | Escopo crescer sem fim (feature creep)                           | Cronograma  | Este documento é o contrato de escopo da v1; ideias novas vão para a seção 19 (backlog), não para a fase atual                                         |
 | 8   | Nivelamento impreciso frustrar veteranos                         | Produto     | Nivelamento provisório com correção acelerada nas 2 primeiras semanas + botão "isso está fácil/difícil demais" que alimenta o motor                    |
 | 9   | Dependência de um só desenvolvedor (você)                        | Operacional | CI, testes, documentação as-built e runbook desde o início; Claude Code acelera manutenção                                                             |
+| 10  | Custo de voz fugir do previsto                                   | Financeiro  | Cache do conteúdo fixo, cota diária de fala, voz no painel de custos, kill-switch para a Web Speech (ADR-003)                                          |
+| 11  | Voz ruim em português ou em inglês                               | Produto     | Teste cego na Fase 3 com a mesma voz nos dois idiomas; se preciso, uma voz por idioma                                                                  |
+| 12  | Conversa por voz lenta                                           | Produto     | Voz por streaming, turnos curtos, estado "pensando" animado, meta de ~3 s até a primeira fala                                                          |
+| 13  | Dependência de um fornecedor de voz                              | Operacional | `VoicePort` com três adaptadores; troca por configuração                                                                                               |
 
 ---
 
@@ -744,6 +828,7 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 
 - ≥ 10 usuários ativos; taxa de sessão diária ≥ 60% na média de 30 dias; retenção D30 ≥ 70%.
 - Tempo médio de sessão entre 15-25 min (nem raso, nem cansativo).
+- ≥ 70% dos alunos mantêm a voz do tutor ligada (sinal de que o tutor agrada).
 
 **De aprendizado (as que importam):**
 
@@ -754,7 +839,7 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 
 **Operacionais:**
 
-- Custo de IA ≤ US$1,50/usuário ativo/mês; uptime "sempre que alguém tentou estudar, conseguiu"; zero incidentes de segurança.
+- Custo de IA de texto ≤ US$1,50 e de voz ≤ US$1,50 por usuário ativo/mês; uptime "sempre que alguém tentou estudar, conseguiu"; zero incidentes de segurança.
 
 ---
 
@@ -765,7 +850,7 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 3. **Ordem dentro de cada tarefa:** domínio (com testes) → caso de uso → adapter → UI. Nunca o contrário.
 4. **Definição de pronto (colar no CLAUDE.md):** typecheck e lint sem erros; testes novos passando; regra de negócio só no domínio/aplicação; nenhum acesso direto a Supabase/Anthropic fora de `infrastructure`; commit pequeno com mensagem descritiva.
 5. **Revisão:** peça ao Claude Code para explicar as decisões e apontar dívidas técnicas ao final de cada tarefa; dívidas viram issues.
-6. **Conteúdo e prompts continuam aqui no chat:** syllabus, system prompt do tutor, seed de lições e curadoria são trabalho de planejamento — geramos aqui e commitamos como arquivos versionados.
+6. **Conteúdo e prompts continuam aqui no chat:** syllabus, system prompt do tutor, seed de lições, curadoria e o design do tutor e do avatar são trabalho de planejamento — geramos aqui e commitamos como arquivos versionados.
 
 ---
 
@@ -776,6 +861,9 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 - Certificado interno de conclusão de nível (bonito, compartilhável).
 - Trilhas temáticas extras (inglês para reuniões, para viagem, para leitura da Bíblia em inglês com glossário próprio).
 - Sons/haptics de feedback; temas visuais do avatar.
+- Escolher entre vários tutores (personagens e vozes diferentes).
+- Tutor desenhado no Rive, com animação mais rica (ADR-003).
+- Conversa guiada com o tutor já no A1-A2 (diálogos curtos com roteiro).
 - Modo tablet/desktop otimizado para sessões de escrita longas.
 - Suporte a outros idiomas de origem (espanhol → inglês) reaproveitando o motor.
 - Publicação nas lojas (TWA/Capacitor) se a base de usuários crescer.

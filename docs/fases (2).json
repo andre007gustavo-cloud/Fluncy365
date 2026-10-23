@@ -1,0 +1,1210 @@
+{
+  "projeto": "Fluente365",
+  "roteiroVersao": 1,
+  "atualizadoEm": "2026-10-23",
+  "fontes": [
+    "docs/PLANEJAMENTO.md (v1.2)",
+    "docs/PLANEJAMENTO-EMAKHUWA.md (v0.1)",
+    "docs/ADR-001-banco-de-dados.md",
+    "docs/ADR-003-tutor-voz.md"
+  ],
+  "regras": [
+    "Uma fase só começa quando todas as fases de dependeDe estiverem concluídas.",
+    "Com um computador e uma conta, no máximo 2 frentes de código ao mesmo tempo: enquanto a fundação roda, só o time A trabalha junto; depois que a F0.3 termina, a frente da fundação vira o time B.",
+    "O time de cada fase é uma sugestão: se um time ficar parado, o orquestrador pode passar a ele uma fase liberada do outro, desde que os módulos não se cruzem.",
+    "Duas frentes nunca tocam os mesmos módulos ao mesmo tempo.",
+    "Arquivos de uso geral (planner da sessão generate-daily-session, src/di.ts, componentes do session player) são editados por uma frente de cada vez: se duas fases precisarem, o orquestrador segura a segunda até a primeira ser integrada.",
+    "Migrations novas sempre com o nome de data e hora gerado por supabase migration new, para duas frentes não colidirem.",
+    "Fases do tipo chat são feitas pelo André com o Claude no chat e entram no repositório como arquivos; o orquestrador só espera por elas.",
+    "Fases do tipo voce dependem de uma ação do André (testar, escolher, convidar).",
+    "Toda fase de código termina com testes, revisão, segunda opinião do Codex e aprovação do André antes de entrar no main.",
+    "Os caminhos de modulos seguem a seção 11.2 do PLANEJAMENTO; a F0.0 confere os caminhos reais e o orquestrador ajusta este arquivo."
+  ],
+  "times": {
+    "fundacao": "Uma frente só, em sequência: a base que todos usam.",
+    "time-a": "Produto do aluno: domínio, sessão, telas, avatar e tutor na interface.",
+    "time-b": "Infraestrutura, IA, voz e o módulo emakhuwa.",
+    "chat": "André e Claude no chat: conteúdo, prompts e design.",
+    "voce": "Ação do André."
+  },
+  "estados": [
+    "a_fazer",
+    "em_andamento",
+    "em_revisao",
+    "aguardando_voce",
+    "concluida",
+    "bloqueada",
+    "com_falha"
+  ],
+  "fases": [
+    {
+      "id": "F0.0",
+      "etapa": "Fase 0 — Fundação",
+      "titulo": "Auditoria do repositório",
+      "tipo": "codigo",
+      "time": "fundacao",
+      "planoRef": "PLANEJAMENTO 15 (Fase 0); ADR-001",
+      "objetivo": "Mapear o que já existe no repositório (a ADR-001 indica schema inicial e tipos do Supabase já criados), marcar o que já está pronto e ajustar os caminhos deste roteiro.",
+      "dependeDe": [],
+      "modulos": ["somente leitura do repositório; escreve só este fases.json"],
+      "prontoQuando": [
+        "Lista do que existe e do que falta, por tarefa da Fase 0",
+        "Estados e caminhos deste arquivo atualizados e aprovados pelo André"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F0.1",
+      "etapa": "Fase 0 — Fundação",
+      "titulo": "Repositório, qualidade, esqueleto e contratos",
+      "tipo": "codigo",
+      "time": "fundacao",
+      "planoRef": "PLANEJAMENTO 15 (Fase 0, tarefas 1, 2, 3, 7, 8 e 9); 11.2; 13",
+      "objetivo": "Next.js com TypeScript estrito, ferramentas de qualidade, CI, CLAUDE.md, esqueleto da Clean Architecture e os contratos da seção 13, para que as frentes seguintes trabalhem em paralelo sobre interfaces já definidas.",
+      "dependeDe": ["F0.0"],
+      "modulos": [
+        "package.json e arquivos de configuração",
+        ".github/workflows/**",
+        ".husky/**",
+        "CLAUDE.md",
+        "src/domain/value-objects/**",
+        "src/domain/ports/**",
+        "src/di.ts",
+        "esqueleto de src/domain, src/application, src/infrastructure e src/presentation",
+        "design tokens e componentes base"
+      ],
+      "prontoQuando": [
+        "clone, npm i e npm run dev funcionam em menos de 5 minutos",
+        "CI verde com lint, typecheck e testes",
+        "Um exemplo mínimo por camada fixando o padrão",
+        "Value objects e contratos da seção 13 criados, incluindo VoicePort e TutorState",
+        "CLAUDE.md com convenções e definição de pronto",
+        "Design tokens e componentes base (Button, Card, ProgressBar)"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F0.2",
+      "etapa": "Fase 0 — Fundação",
+      "titulo": "Supabase: login, schema multi-idioma e isolamento",
+      "tipo": "codigo",
+      "time": "fundacao",
+      "planoRef": "PLANEJAMENTO 15 (Fase 0, tarefa 4); 12; ADR-001; PLANEJAMENTO-EMAKHUWA 12.2",
+      "objetivo": "Login por e-mail e Google, schema inicial com RLS em todas as tabelas e a base multi-idioma (tabela courses e course_id), que é barata agora e cara depois.",
+      "dependeDe": ["F0.1"],
+      "modulos": [
+        "supabase/migrations/**",
+        "src/infrastructure/supabase/**",
+        "docs/ADR-002-multi-idioma.md"
+      ],
+      "prontoQuando": [
+        "Login e logout por e-mail e Google",
+        "RLS ligada em todas as tabelas",
+        "Teste de integração: o usuário A não lê os dados do usuário B",
+        "Tabela courses e course_id aplicados, com o ADR-002 escrito",
+        "Tipos gerados por npx supabase gen types typescript"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F0.3",
+      "etapa": "Fase 0 — Fundação",
+      "titulo": "Deploy na Vercel e PWA base",
+      "tipo": "codigo",
+      "time": "fundacao",
+      "planoRef": "PLANEJAMENTO 15 (Fase 0, tarefas 5 e 6)",
+      "objetivo": "Deploy contínuo e app instalável no celular, com tela offline.",
+      "dependeDe": ["F0.2"],
+      "modulos": [
+        "next.config.* e vercel.json",
+        "public/**",
+        "manifest e service worker (Serwist)"
+      ],
+      "prontoQuando": [
+        "Preview por PR e produção na main",
+        "Variáveis de ambiente configuradas na Vercel",
+        "PWA instala no Android e no iPhone",
+        "Tela offline funciona"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "C1",
+      "etapa": "Trilha de conteúdo (chat)",
+      "titulo": "Syllabus dos meses 1 e 2",
+      "tipo": "chat",
+      "time": "chat",
+      "planoRef": "PLANEJAMENTO 5; 15 (trilha paralela de conteúdo)",
+      "objetivo": "Detalhar as 8 unidades dos meses 1 e 2, que a Fase 1 precisa.",
+      "dependeDe": [],
+      "modulos": ["content/syllabus/** (meses 1 e 2)"],
+      "prontoQuando": [
+        "Cada unidade com objetivos, estruturas-alvo, vocabulário, erros PT-BR, conteúdos jw.org sugeridos, critérios de domínio e unidade do Murphy",
+        "Arquivos commitados em content/syllabus"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "C2",
+      "etapa": "Trilha de conteúdo (chat)",
+      "titulo": "Seed do mês 1 e itens de nivelamento",
+      "tipo": "chat",
+      "time": "chat",
+      "planoRef": "PLANEJAMENTO 7; 15 (Fase 1, tarefas 2 e 5)",
+      "objetivo": "Escrever à mão o conteúdo que a Fase 1 usa sem IA.",
+      "dependeDe": ["C1"],
+      "modulos": ["content/seed/**", "content/placement/**"],
+      "prontoQuando": [
+        "24 lições do mês 1 no formato de content_lessons",
+        "Cerca de 60 palavras e 8 pseudo-palavras para o teste de vocabulário",
+        "Cerca de 120 itens de gramática calibrados de A1 a C1"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "C3",
+      "etapa": "Trilha de conteúdo (chat)",
+      "titulo": "System prompt do tutor v1",
+      "tipo": "chat",
+      "time": "chat",
+      "planoRef": "PLANEJAMENTO 9.1; 9.6; 15 (Fase 2, tarefa 2)",
+      "objetivo": "Persona do tutor, métodos da seção 2, erros PT-BR, estilo e formato JSON por tarefa, testados no chat antes do código.",
+      "dependeDe": ["C1"],
+      "modulos": ["prompts/tutor/**"],
+      "prontoQuando": [
+        "Prompt e schemas JSON por tipo de tarefa",
+        "Testado no chat com lições e correções reais",
+        "Regra de turnos curtos e faláveis para o modo conversa"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "C4",
+      "etapa": "Trilha de conteúdo (chat)",
+      "titulo": "Specs das unidades dos meses 1 a 3",
+      "tipo": "chat",
+      "time": "chat",
+      "planoRef": "PLANEJAMENTO 15 (Fase 2, tarefa 3)",
+      "objetivo": "Specs no formato content_units para o ContentGenerator, incluindo o syllabus do mês 3.",
+      "dependeDe": ["C1"],
+      "modulos": ["content/units/** (meses 1 a 3)", "content/syllabus/** (mês 3)"],
+      "prontoQuando": ["Specs dos meses 1 a 3 prontas para importar e validar com zod"],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "C5",
+      "etapa": "Trilha de conteúdo (chat)",
+      "titulo": "Curadoria de conteúdos do jw.org (A1 a B1)",
+      "tipo": "chat",
+      "time": "chat",
+      "planoRef": "PLANEJAMENTO 4.4; 15 (Fase 3, tarefa 1)",
+      "objetivo": "Lista de referências oficiais classificadas, sem copiar nenhuma publicação.",
+      "dependeDe": ["C1"],
+      "modulos": ["content/jw-refs/**"],
+      "prontoQuando": ["40 a 60 conteúdos com URL, título, tipo, nível, duração e tópicos"],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "C6",
+      "etapa": "Trilha de conteúdo (chat)",
+      "titulo": "Design do tutor",
+      "tipo": "chat",
+      "time": "chat",
+      "planoRef": "PLANEJAMENTO 4.9; 15 (Fase 4, tarefa 7); ADR-003",
+      "objetivo": "Definir quem é o tutor e desenhar o SVG base que a frente de interface vai animar.",
+      "dependeDe": [],
+      "modulos": ["src/presentation/components/tutor/art/**", "docs/tutor.md"],
+      "prontoQuando": [
+        "Nome, personalidade e visual definidos pelo André",
+        "SVG base com rosto, olhos, sobrancelhas, 6 formatos de boca mais repouso e expressões"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "C7",
+      "etapa": "Trilha de conteúdo (chat)",
+      "titulo": "Design do avatar do aluno",
+      "tipo": "chat",
+      "time": "chat",
+      "planoRef": "PLANEJAMENTO 10.1; 15 (Fase 4, tarefa 1)",
+      "objetivo": "Desenhar os estágios e acessórios do avatar que evolui com o aluno.",
+      "dependeDe": [],
+      "modulos": ["src/presentation/components/avatar/art/**"],
+      "prontoQuando": ["7 estágios e 6 acessórios em SVG base por camadas"],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "C8",
+      "etapa": "Trilha de conteúdo (chat)",
+      "titulo": "Syllabus e specs dos meses 4 a 12",
+      "tipo": "chat",
+      "time": "chat",
+      "planoRef": "PLANEJAMENTO 5; 15 (Fase 5, tarefa 4)",
+      "objetivo": "Completar o currículo, com as revisitas da espiral e os exercícios de nuance do B2 e C1.",
+      "dependeDe": ["C4"],
+      "modulos": ["content/syllabus/** (meses 4 a 12)", "content/units/** (meses 4 a 12)"],
+      "prontoQuando": [
+        "Revisitas da espiral marcadas no syllabus",
+        "Specs dos meses 8 a 12 com exercícios de nuance"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "C9",
+      "etapa": "Trilha de conteúdo (chat)",
+      "titulo": "Prompt do modo conversa e roteiros de roleplay",
+      "tipo": "chat",
+      "time": "chat",
+      "planoRef": "PLANEJAMENTO 9.6; 15 (Fase 5, tarefas 1 e 3)",
+      "objetivo": "Prompt do ConversationTutor e cenários de roleplay, testados no chat.",
+      "dependeDe": ["C3"],
+      "modulos": ["prompts/conversation/**", "content/roleplays/**"],
+      "prontoQuando": [
+        "Prompt com recast, raio-x opcional e turnos de 1 a 3 frases",
+        "Cenários de roleplay definidos"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "E0",
+      "etapa": "Módulo emakhuwa",
+      "titulo": "Validação no chat (go/no-go)",
+      "tipo": "chat",
+      "time": "chat",
+      "planoRef": "PLANEJAMENTO-EMAKHUWA 14 (E0)",
+      "objetivo": "Provar que a IA alinha e analisa bem o suficiente antes de investir em código.",
+      "dependeDe": [],
+      "modulos": ["prompts/vmw/aligner.v1.md", "prompts/vmw/analyzer.v1.md"],
+      "prontoQuando": [
+        "Fontes mapeadas: URLs em PT e vmw, número do documento e áudios disponíveis",
+        "10 textos diários alinhados e analisados",
+        "Alinhamento correto em 95% ou mais, glosas plausíveis em 70% ou mais e 30 ou mais entradas em provável",
+        "Decisão do André: seguir, ajustar ou parar"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "E1",
+      "etapa": "Módulo emakhuwa",
+      "titulo": "Tabelas do corpus e feature flag",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO-EMAKHUWA 14 (E1); 10",
+      "objetivo": "Criar o espaço isolado do módulo, só para a conta do André.",
+      "dependeDe": ["F0.2"],
+      "modulos": [
+        "supabase/migrations/** (corpus_*, lexicon_*, grammar_patterns, corpus_lessons)",
+        "configuração da feature flag module_vmw"
+      ],
+      "prontoQuando": [
+        "Tabelas da seção 10 do plano emakhuwa com RLS",
+        "Feature flag module_vmw liberada só para a conta do André",
+        "Teste de integração: outra conta não lê nada do corpus"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F1.1",
+      "etapa": "Fase 1 — MVP do hábito",
+      "titulo": "Domínio: SRS",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 8.4; 15 (Fase 1, tarefa 1)",
+      "objetivo": "SrsCard e SrsScheduler (SM-2 adaptado), o coração do app.",
+      "dependeDe": ["F0.1"],
+      "modulos": ["src/domain/entities/srs-card*", "src/domain/services/srs-scheduler*"],
+      "prontoQuando": [
+        "SM-2 adaptado conforme a seção 8.4",
+        "Cobertura de 90% ou mais com relógio simulado: datas, lapsos e limite de 20 revisões"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F1.2",
+      "etapa": "Fase 1 — MVP do hábito",
+      "titulo": "Domínio: exercícios e avaliadores",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 4.3; 13; 15 (Fase 1, tarefa 1)",
+      "objetivo": "Exercise e avaliadores determinísticos, todos com o mesmo contrato de resultado.",
+      "dependeDe": ["F0.1"],
+      "modulos": ["src/domain/entities/exercise*", "src/domain/services/evaluators/**"],
+      "prontoQuando": [
+        "Múltipla escolha, lacuna, ordenar, associar, ditado com diff e verdadeiro ou falso",
+        "Cobertura de 90% ou mais"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F1.3",
+      "etapa": "Fase 1 — MVP do hábito",
+      "titulo": "Domínio: sessão, streak e XP diário",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 10.2; 10.3; 15 (Fase 1, tarefa 1)",
+      "objetivo": "Session, Streak com escudos e XP diário.",
+      "dependeDe": ["F0.1"],
+      "modulos": [
+        "src/domain/entities/session*",
+        "src/domain/entities/streak*",
+        "src/domain/services/xp*"
+      ],
+      "prontoQuando": [
+        "Streak com 2 escudos por mês, não acumuláveis",
+        "XP diário da seção 10.2 com anti-farm",
+        "Testes cobrindo as regras"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F1.4",
+      "etapa": "Fase 1 — MVP do hábito",
+      "titulo": "Persistência local e sincronização",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 11.1; 15 (Fase 1, tarefa 3)",
+      "objetivo": "Dexie como fonte local, SyncEngine e repositórios Supabase.",
+      "dependeDe": ["F1.1", "F1.2", "F1.3", "F0.2"],
+      "modulos": ["src/infrastructure/local/**", "src/infrastructure/supabase/** (repositórios)"],
+      "prontoQuando": [
+        "Fila de operações offline, com a última escrita vencendo",
+        "Funciona no modo avião depois do primeiro carregamento"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F1.5",
+      "etapa": "Fase 1 — MVP do hábito",
+      "titulo": "Importação do seed",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 15 (Fase 1, tarefa 2)",
+      "objetivo": "Levar as lições e os itens de nivelamento escritos no chat para o Supabase.",
+      "dependeDe": ["C2", "F0.2"],
+      "modulos": ["scripts/import-seed*"],
+      "prontoQuando": ["Script idempotente importa as 24 lições e os itens de nivelamento"],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F1.6",
+      "etapa": "Fase 1 — MVP do hábito",
+      "titulo": "Session Player",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 6; 8.5; 15 (Fase 1, tarefa 4)",
+      "objetivo": "A sessão diária de 20 minutos funcionando de ponta a ponta, sem IA.",
+      "dependeDe": ["F1.4", "F1.5"],
+      "modulos": [
+        "src/application/generate-daily-session*",
+        "src/application/evaluate-answer*",
+        "src/application/complete-session*",
+        "src/application/schedule-srs-reviews*",
+        "src/presentation/components/session-player/**",
+        "src/presentation/components/exercises/**",
+        "src/presentation/hooks/useSession*",
+        "src/presentation/hooks/useSrs*"
+      ],
+      "prontoQuando": [
+        "Blocos da seção 6, com a produção virando exercício determinístico nesta fase",
+        "Sessão retomável e fechamento com XP",
+        "7 sessões seguidas sem bug bloqueante"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F1.7",
+      "etapa": "Fase 1 — MVP do hábito",
+      "titulo": "Onboarding e nivelamento parcial",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 4.1; 7; 15 (Fase 1, tarefa 5)",
+      "objetivo": "Boas-vindas e nivelamento determinístico de vocabulário e gramática.",
+      "dependeDe": ["F1.2", "F1.5"],
+      "modulos": [
+        "src/application/run-placement-test*",
+        "src/presentation/app/onboarding/**",
+        "src/presentation/components/placement/**"
+      ],
+      "prontoQuando": [
+        "Teste sim ou não de vocabulário e gramática adaptativa",
+        "Botão Nunca estudei inglês",
+        "Perfil por habilidade salvo"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F1.8",
+      "etapa": "Fase 1 — MVP do hábito",
+      "titulo": "Dashboard e Sessão de Resgate",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 4.2; 15 (Fase 1, tarefas 6 e 7)",
+      "objetivo": "Tela inicial com a sessão do dia e a sessão curta que salva o streak.",
+      "dependeDe": ["F1.6"],
+      "modulos": ["src/presentation/app/(home)/**", "src/application/rescue-session*"],
+      "prontoQuando": [
+        "Sessão do dia, streak com escudos, progresso da unidade e palavras no SRS",
+        "Sessão de Resgate de 5 minutos mantém o streak"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F1.9",
+      "etapa": "Fase 1 — MVP do hábito",
+      "titulo": "Beta fechado com a família",
+      "tipo": "voce",
+      "time": "voce",
+      "planoRef": "PLANEJAMENTO 15 (Fase 1, tarefa 8)",
+      "objetivo": "Duas ou três pessoas usando de verdade por uma semana.",
+      "dependeDe": ["F1.7", "F1.8", "F0.3"],
+      "modulos": [],
+      "prontoQuando": [
+        "2 testers completam 1 semana",
+        "Fricções registradas como pendências para o orquestrador"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F2.1",
+      "etapa": "Fase 2 — Cérebro de IA",
+      "titulo": "Proxy /api/tutor",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 9.5; 11.4; 15 (Fase 2, tarefa 1)",
+      "objetivo": "A única porta para a IA: sessão verificada, limite por usuário, prompt no servidor e custo registrado.",
+      "dependeDe": ["F0.2", "F0.3"],
+      "modulos": [
+        "src/presentation/app/api/tutor/**",
+        "src/infrastructure/anthropic/** (cliente e proxy)",
+        "supabase/migrations/** (contador de chamadas)"
+      ],
+      "prontoQuando": [
+        "Sessão verificada com supabase.auth.getUser()",
+        "Rate limit por usuário",
+        "System prompt só no servidor, com prompt caching",
+        "Tokens e custo em admin_costs",
+        "Retry com backoff",
+        "Teste: sem token válido a API não é chamada"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F2.2",
+      "etapa": "Fase 2 — Cérebro de IA",
+      "titulo": "ContentGenerator e pipeline de lições",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 9.3; 15 (Fase 2, tarefa 4)",
+      "objetivo": "Gerar, validar, salvar e reusar lições sob especificação.",
+      "dependeDe": ["F2.1", "C3", "C4", "F1.5"],
+      "modulos": [
+        "src/application/generate-lesson*",
+        "src/infrastructure/anthropic/content-generator*",
+        "src/domain/services/lesson-validator*",
+        "src/infrastructure/supabase/content-repository*"
+      ],
+      "prontoQuando": [
+        "Validação por schema zod e validação pedagógica automática",
+        "Lição gerada uma vez sai do cache nas próximas",
+        "Fallback para o seed em falha dupla",
+        "95% das gerações passam no schema na primeira tentativa"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F2.3",
+      "etapa": "Fase 2 — Cérebro de IA",
+      "titulo": "WritingCoach",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 9.4; 15 (Fase 2, tarefa 5)",
+      "objetivo": "Correção de escrita real no bloco de produção de segunda, quarta e sexta.",
+      "dependeDe": ["F2.1", "C3", "F1.6"],
+      "modulos": [
+        "src/application/request-writing-feedback*",
+        "src/infrastructure/anthropic/writing-coach*",
+        "src/presentation/components/writing-feedback/**"
+      ],
+      "prontoQuando": [
+        "Feedback erro a erro na interface",
+        "Itens sugeridos entram no SRS",
+        "10 textos de teste com correção aprovada pelo André"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F2.4",
+      "etapa": "Fase 2 — Cérebro de IA",
+      "titulo": "Nivelamento completo",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 7; 15 (Fase 2, tarefa 6)",
+      "objetivo": "Etapa de escrita avaliada por IA no teste de nivelamento.",
+      "dependeDe": ["F2.3", "F1.7"],
+      "modulos": [
+        "src/application/run-placement-test*",
+        "src/infrastructure/anthropic/placement-analyzer*",
+        "src/presentation/components/placement/**"
+      ],
+      "prontoQuando": ["Perfil por habilidade posiciona cada trilha no mês certo"],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F2.5",
+      "etapa": "Fase 2 — Cérebro de IA",
+      "titulo": "Motor adaptativo v1",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 8.2; 8.3; 15 (Fase 2, tarefa 7)",
+      "objetivo": "Domínio por tópico, registro de erros, remediação e Elo na escolha dos exercícios.",
+      "dependeDe": ["F2.2", "F1.6"],
+      "modulos": [
+        "src/domain/services/mastery*",
+        "src/domain/services/elo*",
+        "src/application/update-student-model*",
+        "src/infrastructure/anthropic/remediator*",
+        "src/application/generate-daily-session* (arquivo de uso geral)"
+      ],
+      "prontoQuando": [
+        "Regras de domínio da seção 8.2 com testes",
+        "errorLog alimentado pelos errorCodes",
+        "Remediator para tópicos abaixo de 60%",
+        "Elo na seleção de exercícios"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F2.6",
+      "etapa": "Fase 2 — Cérebro de IA",
+      "titulo": "Painel admin v1",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 4.8; 15 (Fase 2, tarefa 8)",
+      "objetivo": "O André acompanha custos, conteúdo gerado e progresso sem tocar em código.",
+      "dependeDe": ["F2.2"],
+      "modulos": ["src/presentation/app/admin/**"],
+      "prontoQuando": [
+        "Custo do dia e do mês",
+        "Fila de lições auto para aprovar, editar ou apagar",
+        "Progresso dos usuários"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "E2",
+      "etapa": "Módulo emakhuwa",
+      "titulo": "Coletor, alinhador e leitor paralelo",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO-EMAKHUWA 14 (E2)",
+      "objetivo": "Importar textos em português e emakhuwa, alinhar frase por frase e ler lado a lado.",
+      "dependeDe": ["E0", "E1", "F2.1"],
+      "modulos": [
+        "src/domain/corpus/**",
+        "src/application/corpus/**",
+        "src/infrastructure/corpus/**",
+        "src/presentation/app/emakhuwa/**"
+      ],
+      "prontoQuando": [
+        "7 textos diários importados seguidos sem erro bloqueante",
+        "Validação de cobertura rejeita alinhamentos que perdem ou inventam frases",
+        "Colar texto manualmente funciona"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "E3",
+      "etapa": "Módulo emakhuwa",
+      "titulo": "Analisador, léxico com evidência e SRS",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO-EMAKHUWA 14 (E3); 6; 7.5",
+      "objetivo": "A IA propõe significados; o domínio conta as evidências e decide.",
+      "dependeDe": ["E2", "F1.1"],
+      "modulos": [
+        "src/domain/corpus/**",
+        "src/application/corpus/**",
+        "src/presentation/app/emakhuwa/**"
+      ],
+      "prontoQuando": [
+        "CorpusGuard bloqueia 100% das strings inventadas nos testes",
+        "Status do léxico muda conforme as evidências",
+        "Contestação tira o cartão do SRS"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "E4",
+      "etapa": "Módulo emakhuwa",
+      "titulo": "Lições e sessão diária do emakhuwa",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO-EMAKHUWA 14 (E4); 9.2",
+      "objetivo": "Sessão de 20 minutos do emakhuwa dentro do mesmo Session Player.",
+      "dependeDe": ["E3", "F1.6", "F2.5"],
+      "modulos": [
+        "src/domain/corpus/**",
+        "src/application/corpus/**",
+        "src/application/generate-daily-session* (flags do curso; arquivo de uso geral)"
+      ],
+      "prontoQuando": [
+        "7 sessões seguidas completas",
+        "Nenhuma string em emakhuwa fora do corpus em 50 lições geradas",
+        "Planner lê as flags do curso e não agenda fala nem ditado no emakhuwa"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "E5",
+      "etapa": "Módulo emakhuwa",
+      "titulo": "Tutor de perguntas e imersão",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO-EMAKHUWA 14 (E5)",
+      "objetivo": "Perguntas livres respondidas só com evidência do corpus, e escuta registrada na imersão.",
+      "dependeDe": ["E4", "F4.6"],
+      "modulos": [
+        "src/domain/corpus/**",
+        "src/application/corpus/**",
+        "src/presentation/app/emakhuwa/**"
+      ],
+      "prontoQuando": [
+        "Respostas sempre citam ocorrências reais ou dizem que não há evidência",
+        "Exportação pessoal do léxico em CSV"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F3.1",
+      "etapa": "Fase 3 — Ouvido e voz",
+      "titulo": "Input Real do jw.org",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 4.4; 15 (Fase 3, tarefas 1 e 2)",
+      "objetivo": "Leitura e áudio oficiais no bloco de input, com tarefa acoplada.",
+      "dependeDe": ["C5", "F2.2", "F2.6"],
+      "modulos": [
+        "src/presentation/components/input-real/**",
+        "src/presentation/app/admin/curadoria/**",
+        "src/application/generate-input-task*"
+      ],
+      "prontoQuando": [
+        "40 a 60 conteúdos no banco",
+        "Áudio oficial transmitido da fonte, sem copiar a publicação",
+        "Tarefa acoplada gerada pela IA e em cache por conteúdo",
+        "Tela de curadoria no admin"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F3.2",
+      "etapa": "Fase 3 — Ouvido e voz",
+      "titulo": "Ditado",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 15 (Fase 3, tarefa 3)",
+      "objetivo": "Interface do ditado sobre o avaliador com diff da Fase 1.",
+      "dependeDe": ["F1.6"],
+      "modulos": ["src/presentation/components/exercises/dictation/**"],
+      "prontoQuando": [
+        "Diff palavra a palavra com destaque visual",
+        "Ajudas: velocidade 0,75× e repetição"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F3.3",
+      "etapa": "Fase 3 — Ouvido e voz",
+      "titulo": "Porta de voz e proxy /api/voz",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "ADR-003; PLANEJAMENTO 9.6; 15 (Fase 3, tarefa 4)",
+      "objetivo": "A voz do tutor com cache, cota e custo controlados, trocando de fornecedor por configuração.",
+      "dependeDe": ["F2.1"],
+      "modulos": [
+        "src/infrastructure/voice/**",
+        "src/presentation/app/api/voz/**",
+        "src/application/get-tutor-speech*",
+        "supabase/migrations/** (tutor_audio_cache)"
+      ],
+      "prontoQuando": [
+        "Adaptadores Fish Audio, ElevenLabs e Web Speech",
+        "A segunda síntese do mesmo texto sai do cache sem chamar o fornecedor",
+        "Cota diária de fala por aluno",
+        "Caracteres e custo em admin_costs",
+        "Kill-switch cai para a Web Speech",
+        "Chaves só no servidor"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F3.4",
+      "etapa": "Fase 3 — Ouvido e voz",
+      "titulo": "Teste cego de vozes",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "ADR-003; PLANEJAMENTO 15 (Fase 3, tarefa 5)",
+      "objetivo": "Gerar amostras para o André escolher a voz do tutor sem saber o fornecedor.",
+      "dependeDe": ["F3.3"],
+      "modulos": ["scripts/voice-samples*", "docs/ADR-003-tutor-voz.md"],
+      "prontoQuando": [
+        "A mesma fala em português e em inglês em cada fornecedor, com nomes embaralhados",
+        "Pendência respondida pelo André: voz escolhida",
+        "Escolha registrada no ADR-003 e na configuração"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F3.5",
+      "etapa": "Fase 3 — Ouvido e voz",
+      "titulo": "Fala do aluno: leitura em voz alta e SpeechCoach",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 15 (Fase 3, tarefas 8 e 9); ADR-003",
+      "objetivo": "Ouvir o aluno no Android e no iPhone e dar feedback curto sobre a pronúncia.",
+      "dependeDe": ["F3.3", "F1.6"],
+      "modulos": [
+        "src/infrastructure/speech/**",
+        "src/application/coach-speech*",
+        "src/infrastructure/anthropic/speech-coach*",
+        "src/presentation/components/exercises/read-aloud/**",
+        "src/presentation/app/api/voz/** (rota de transcrição)"
+      ],
+      "prontoQuando": [
+        "Transcrição pela Web Speech no Android e no Chrome",
+        "No iPhone, o áudio é transcrito pelo proxy",
+        "Feedback de fala em menos de 6 segundos",
+        "Testado num iPhone real"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F3.6",
+      "etapa": "Fase 3 — Ouvido e voz",
+      "titulo": "Pronúncia no app e áudio das lições",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 15 (Fase 3, tarefas 6 e 7)",
+      "objetivo": "Botão de áudio em palavras, frases e cartões, e o áudio das explicações pré-gerado.",
+      "dependeDe": ["F3.4", "F2.2"],
+      "modulos": [
+        "src/presentation/components/audio-button/**",
+        "src/presentation/components/srs/**",
+        "scripts/pregenerate-audio*"
+      ],
+      "prontoQuando": [
+        "Áudio em palavras, frases e cartões SRS pela voz escolhida",
+        "Explicações e enunciados dos meses 1 a 3 pré-gerados em lote no cache"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F3.7",
+      "etapa": "Fase 3 — Ouvido e voz",
+      "titulo": "Shadowing e rotação semanal da produção",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 6; 15 (Fase 3, tarefas 10 e 11)",
+      "objetivo": "Shadowing com a gravação lado a lado e escrita e fala alternando na semana.",
+      "dependeDe": ["F3.5", "F3.2", "F2.5"],
+      "modulos": [
+        "src/presentation/components/exercises/shadowing/**",
+        "src/application/generate-daily-session* (arquivo de uso geral)"
+      ],
+      "prontoQuando": [
+        "Shadowing com replay alternado",
+        "Escrita na segunda, quarta e sexta; fala na terça, quinta e sábado"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F4.1",
+      "etapa": "Fase 4 — Motivação",
+      "titulo": "Avatar do aluno",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 10.1; 15 (Fase 4, tarefa 1)",
+      "objetivo": "Animar os estágios e acessórios desenhados no chat.",
+      "dependeDe": ["C7", "F1.6"],
+      "modulos": ["src/presentation/components/avatar/**", "src/presentation/hooks/useAvatar*"],
+      "prontoQuando": ["7 estágios e 6 acessórios animados", "Cena de evolução"],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F4.2",
+      "etapa": "Fase 4 — Motivação",
+      "titulo": "Economia de XP, evolução e badges",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 10.2; 15 (Fase 4, tarefas 2 e 3)",
+      "objetivo": "Regras que fazem o avatar evoluir por domínio comprovado.",
+      "dependeDe": ["F1.3", "F2.5"],
+      "modulos": [
+        "src/domain/services/xp*",
+        "src/domain/services/badges*",
+        "src/domain/entities/avatar*",
+        "src/application/evolve-avatar*"
+      ],
+      "prontoQuando": [
+        "Economia da seção 10.2 com anti-farm",
+        "Evolução dispara nos marcos certos, com testes de regra",
+        "Badges da Fase 4"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F4.3",
+      "etapa": "Fase 4 — Motivação",
+      "titulo": "Tutor animado",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "ADR-003; PLANEJAMENTO 4.9; 15 (Fase 4, tarefa 7)",
+      "objetivo": "O componente do tutor com estados, boca sincronizada e legenda.",
+      "dependeDe": ["C6", "F3.3"],
+      "modulos": [
+        "src/presentation/components/tutor/**",
+        "src/domain/entities/tutor*",
+        "src/presentation/hooks/useTutor*"
+      ],
+      "prontoQuando": [
+        "Estados parado, ouvindo, pensando, falando, comemorando e encorajando",
+        "Boca guiada pela amplitude do áudio",
+        "Legenda sempre visível e opção de silenciar",
+        "Sem atraso perceptível em Android e iPhone"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F4.4",
+      "etapa": "Fase 4 — Motivação",
+      "titulo": "Tutor na sessão e no onboarding",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "ADR-003; PLANEJAMENTO 6; 15 (Fase 4, tarefa 8)",
+      "objetivo": "O tutor presente do primeiro acesso ao fechamento de cada sessão.",
+      "dependeDe": ["F4.3", "F3.6", "F4.2"],
+      "modulos": [
+        "src/presentation/components/session-player/** (arquivo de uso geral)",
+        "src/presentation/app/onboarding/**"
+      ],
+      "prontoQuando": [
+        "Tutor se apresenta no onboarding",
+        "Narra a lição do dia com áudio em cache",
+        "Comenta a produção e faz o fechamento",
+        "Lição baixada é narrada no modo avião"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F4.5",
+      "etapa": "Fase 4 — Motivação",
+      "titulo": "Relatório semanal e notificações",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 4.7; 15 (Fase 4, tarefas 4 e 5)",
+      "objetivo": "Números concretos no domingo e lembretes de estudo.",
+      "dependeDe": ["F2.5"],
+      "modulos": [
+        "src/presentation/app/api/cron/**",
+        "src/infrastructure/notifications/**",
+        "src/application/weekly-report*",
+        "src/presentation/app/relatorio/**"
+      ],
+      "prontoQuando": [
+        "Relatório de domingo chega para todos os testers",
+        "Web Push no Android e no desktop",
+        "Lembrete por e-mail para quem usa iPhone"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F4.6",
+      "etapa": "Fase 4 — Motivação",
+      "titulo": "Trilha de Imersão",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 4.6; 15 (Fase 4, tarefa 9)",
+      "objetivo": "Registrar atividades extras, que aceleram o avatar e entram no relatório.",
+      "dependeDe": ["F4.2", "F4.5"],
+      "modulos": [
+        "src/application/log-immersion*",
+        "src/presentation/components/immersion/**",
+        "src/application/weekly-report*"
+      ],
+      "prontoQuando": [
+        "Registro rápido com tempo estimado",
+        "XP de imersão até 50 por dia",
+        "Imersão aparece no relatório semanal"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F4.7",
+      "etapa": "Fase 4 — Motivação",
+      "titulo": "Mural da turma",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 10.4; 15 (Fase 4, tarefa 6)",
+      "objetivo": "Constância da família visível, sem ranking de notas.",
+      "dependeDe": ["F4.1"],
+      "modulos": [
+        "src/presentation/app/turma/**",
+        "supabase/migrations/** (visibilidade opcional)"
+      ],
+      "prontoQuando": [
+        "Participação opcional por usuário",
+        "Streaks e estágios dos amigos, sem notas",
+        "Aplausos"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F4.8",
+      "etapa": "Fase 4 — Motivação",
+      "titulo": "Polimento visual geral",
+      "tipo": "codigo",
+      "time": "fundacao",
+      "planoRef": "PLANEJAMENTO 15 (Fase 4, tarefa 10)",
+      "objetivo": "Revisão de todas as telas; roda sozinha porque toca o app inteiro.",
+      "dependeDe": ["F4.4", "F4.6", "F4.7", "F3.1", "F3.7", "F2.4"],
+      "modulos": ["todas as telas"],
+      "prontoQuando": [
+        "Design tokens em todas as telas",
+        "Modo escuro",
+        "Micro-animações de acerto e erro"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F4.9",
+      "etapa": "Fase 4 — Motivação",
+      "titulo": "Teste de motivação com a família",
+      "tipo": "voce",
+      "time": "voce",
+      "planoRef": "PLANEJAMENTO 15 (Fase 4, critérios de aceite)",
+      "objetivo": "Medir se a gamificação e o tutor seguram o hábito.",
+      "dependeDe": ["F4.8"],
+      "modulos": [],
+      "prontoQuando": [
+        "Taxa de sessão diária dos testers de 70% ou mais em 2 semanas",
+        "3 testers avaliam o tutor como agradável ou melhor"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F5.1",
+      "etapa": "Fase 5 — Conversa e profundidade",
+      "titulo": "Conversa com o tutor em texto",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 9.6; 15 (Fase 5, tarefa 1)",
+      "objetivo": "O ConversationTutor com recast, raio-x e memória curta do aluno.",
+      "dependeDe": ["F2.1", "C9", "F2.5"],
+      "modulos": [
+        "src/application/converse*",
+        "src/infrastructure/anthropic/conversation-tutor*",
+        "src/presentation/app/conversa/**"
+      ],
+      "prontoQuando": [
+        "Correção gentil por recast e raio-x opcional no fim",
+        "Tutor lembra erros recorrentes do aluno",
+        "Turnos de 1 a 3 frases"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F5.2",
+      "etapa": "Fase 5 — Conversa e profundidade",
+      "titulo": "Conversa por voz com o tutor animado",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "ADR-003; PLANEJAMENTO 15 (Fase 5, tarefa 2)",
+      "objetivo": "O diferencial do app: falar com o tutor como numa chamada.",
+      "dependeDe": ["F5.1", "F4.3", "F3.5", "F3.4"],
+      "modulos": [
+        "src/presentation/app/conversa/**",
+        "src/infrastructure/voice/** (streaming)",
+        "src/presentation/components/tutor/**"
+      ],
+      "prontoQuando": [
+        "Voz por streaming, com estados ouvindo, pensando e falando",
+        "Boca pela marcação de tempo quando o fornecedor devolver",
+        "Modo mãos-livres",
+        "Cota esgotada faz a conversa seguir em texto",
+        "Primeira fala do tutor em até cerca de 3 segundos (meta inicial)"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F5.3",
+      "etapa": "Fase 5 — Conversa e profundidade",
+      "titulo": "Roleplays",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 15 (Fase 5, tarefa 3)",
+      "objetivo": "Cenários práticos com o tutor, definidos no syllabus.",
+      "dependeDe": ["F5.1", "C9"],
+      "modulos": ["src/application/roleplay*", "src/presentation/app/conversa/roleplays/**"],
+      "prontoQuando": ["Cenários do C9 jogáveis em texto e voz"],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F5.4",
+      "etapa": "Fase 5 — Conversa e profundidade",
+      "titulo": "Espiral B2 e C1 e resumos por rubrica",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 5; 15 (Fase 5, tarefas 4 e 5)",
+      "objetivo": "Profundidade do currículo nos meses 8 a 12.",
+      "dependeDe": ["C8", "F2.5", "F2.3"],
+      "modulos": [
+        "src/application/generate-daily-session* (arquivo de uso geral)",
+        "src/infrastructure/anthropic/summary-coach*",
+        "src/presentation/components/exercises/nuance/**"
+      ],
+      "prontoQuando": [
+        "Revisitas da espiral aparecem nos planos de sessão dos meses certos",
+        "Exercícios de nuance e resumos avaliados por rubrica"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F5.5",
+      "etapa": "Fase 5 — Conversa e profundidade",
+      "titulo": "Roteamento de modelo e custo real",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 14.2; 14.4; 15 (Fase 5, tarefa 6)",
+      "objetivo": "Conferir que o modo conversa cabe no orçamento de texto e de voz.",
+      "dependeDe": ["F5.2"],
+      "modulos": ["src/infrastructure/anthropic/router*", "configuração de limites e cotas"],
+      "prontoQuando": [
+        "Conversa no Sonnet e o resto no Haiku",
+        "Custo real de texto e voz medido e dentro das seções 14.2 e 14.4",
+        "Limites diários e cota de fala ajustados"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F5.6",
+      "etapa": "Fase 5 — Conversa e profundidade",
+      "titulo": "Marco trimestral",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 4.7; 15 (Fase 5, tarefa 7)",
+      "objetivo": "Mini-nivelamento comparativo que mostra o avanço real.",
+      "dependeDe": ["F2.4"],
+      "modulos": ["src/application/quarterly-checkpoint*", "src/presentation/app/marco/**"],
+      "prontoQuando": ["Tela mostra a evolução por habilidade desde o último marco"],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F5.7",
+      "etapa": "Fase 5 — Conversa e profundidade",
+      "titulo": "Teste da conversa",
+      "tipo": "voce",
+      "time": "voce",
+      "planoRef": "PLANEJAMENTO 15 (Fase 5, critérios de aceite)",
+      "objetivo": "Validar a conversa com alunos de verdade.",
+      "dependeDe": ["F5.2", "F5.3"],
+      "modulos": [],
+      "prontoQuando": [
+        "Aluno B1 sustenta 5 minutos de conversa com correções úteis",
+        "Tutor lembra erros recorrentes"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F6.1",
+      "etapa": "Fase 6 — Lançamento",
+      "titulo": "Analytics de aprendizado",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 15 (Fase 6, tarefa 3)",
+      "objetivo": "Eventos próprios, sem rastreadores de terceiros. Pode ser adiantada quando uma frente ficar livre.",
+      "dependeDe": ["F1.6"],
+      "modulos": ["src/application/track-event*", "supabase/migrations/** (tabela de eventos)"],
+      "prontoQuando": ["Conclusão de sessão, ponto de abandono e tempo por bloco registrados"],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F6.2",
+      "etapa": "Fase 6 — Lançamento",
+      "titulo": "Testes de ponta a ponta",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 15 (Fase 6, tarefa 1)",
+      "objetivo": "Playwright nos fluxos críticos.",
+      "dependeDe": ["F5.2", "F4.8"],
+      "modulos": ["e2e/**"],
+      "prontoQuando": [
+        "Onboarding, sessão completa, offline e sincronização e conversa por voz testados"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F6.3",
+      "etapa": "Fase 6 — Lançamento",
+      "titulo": "Acessibilidade e performance",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 3.3; 15 (Fase 6, tarefa 2)",
+      "objetivo": "Auditoria final de qualidade.",
+      "dependeDe": ["F4.8"],
+      "modulos": ["correções pontuais nas telas"],
+      "prontoQuando": [
+        "Lighthouse 90 ou mais em PWA, performance e acessibilidade",
+        "Legenda em toda fala do tutor"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F6.4",
+      "etapa": "Fase 6 — Lançamento",
+      "titulo": "Convite e onboarding revisado",
+      "tipo": "codigo",
+      "time": "time-a",
+      "planoRef": "PLANEJAMENTO 15 (Fase 6, tarefa 4)",
+      "objetivo": "Link mágico para a família e onboarding ajustado com o que os testers ensinaram.",
+      "dependeDe": ["F1.9", "F4.4"],
+      "modulos": ["src/presentation/app/convite/**", "src/presentation/app/onboarding/**"],
+      "prontoQuando": ["Convite por link funciona", "Fricções do beta resolvidas no onboarding"],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F6.5",
+      "etapa": "Fase 6 — Lançamento",
+      "titulo": "Documentação, runbook e backup",
+      "tipo": "codigo",
+      "time": "time-b",
+      "planoRef": "PLANEJAMENTO 15 (Fase 6, tarefa 5)",
+      "objetivo": "Deixar o app operável pelo André sem tocar em código.",
+      "dependeDe": ["F6.2", "F6.3"],
+      "modulos": ["docs/**", "configuração de backup"],
+      "prontoQuando": [
+        "PLANEJAMENTO atualizado com o estado real",
+        "Runbook de custos, aprovação de conteúdo e voz",
+        "Backup com pg_dump agendado"
+      ],
+      "estado": "a_fazer"
+    },
+    {
+      "id": "F6.6",
+      "etapa": "Fase 6 — Lançamento",
+      "titulo": "Lançamento para a família",
+      "tipo": "voce",
+      "time": "voce",
+      "planoRef": "PLANEJAMENTO 15 (Fase 6, tarefa 6 e critérios de aceite)",
+      "objetivo": "v1.0 em produção com a turma completa.",
+      "dependeDe": ["F6.4", "F6.5", "F6.1"],
+      "modulos": [],
+      "prontoQuando": [
+        "10 ou mais usuários ativos por 2 semanas",
+        "Zero bugs bloqueantes abertos",
+        "Custo mensal real dentro do teto",
+        "Rodada de feedback no app respondida e corrigida"
+      ],
+      "estado": "a_fazer"
+    }
+  ]
+}
