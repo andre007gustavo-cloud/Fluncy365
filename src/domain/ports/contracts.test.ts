@@ -1,0 +1,35 @@
+import { describe, expectTypeOf, it } from "vitest";
+import type { EvaluationResult, ExerciseKind, SrsSignal } from "../entities/exercise";
+import type { ReviewQuality } from "../entities/srs-card";
+import type { CefrLevel } from "../value-objects/cefr-level";
+import type { Skill } from "../value-objects/skill";
+import type { AiTutorPort } from "./ai-tutor.port";
+import type { ExerciseEvaluator } from "./exercise-evaluator.port";
+import type { SrsScheduler } from "../services/srs-scheduler";
+
+type Section13Kinds =
+  | "multiple_choice"
+  | "gap_fill"
+  | "reorder"
+  | "match"
+  | "dictation"
+  | "open_writing"
+  | "translation"
+  | "read_aloud";
+
+describe("contratos da secao 13", () => {
+  it("mantem os tipos centrais estaveis", () => {
+    expectTypeOf<Section13Kinds>().toExtend<ExerciseKind>();
+    expectTypeOf<"true_false">().toExtend<ExerciseKind>();
+    expectTypeOf<EvaluationResult["correct"]>().toEqualTypeOf<boolean | null>();
+    expectTypeOf<SrsSignal["quality"]>().toEqualTypeOf<0 | 1 | 2 | 3 | 4 | 5>();
+    expectTypeOf<ExerciseEvaluator["supports"]>().parameters.toEqualTypeOf<[ExerciseKind]>();
+    expectTypeOf<keyof AiTutorPort>().toEqualTypeOf<
+      "generateLesson" | "reviewWriting" | "coachSpeech" | "remediate" | "converse"
+    >();
+    expectTypeOf<keyof SrsScheduler>().toEqualTypeOf<"review" | "dueCards">();
+    expectTypeOf<Parameters<SrsScheduler["review"]>[1]>().toEqualTypeOf<ReviewQuality>();
+    expectTypeOf<Skill>().toEqualTypeOf<"reading" | "listening" | "writing" | "speaking">();
+    expectTypeOf<CefrLevel>().toEqualTypeOf<number>();
+  });
+});
