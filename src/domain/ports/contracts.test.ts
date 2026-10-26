@@ -1,6 +1,7 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type { EvaluationResult, ExerciseKind, SrsSignal } from "../entities/exercise";
 import type { ReviewQuality } from "../entities/srs-card";
+import type { MouthShape, TutorState } from "../entities/tutor";
 import type { CefrLevel } from "../value-objects/cefr-level";
 import type { Skill } from "../value-objects/skill";
 import type { AiTutorPort } from "./ai-tutor.port";
@@ -31,5 +32,9 @@ describe("contratos da secao 13", () => {
     expectTypeOf<Parameters<SrsScheduler["review"]>[1]>().toEqualTypeOf<ReviewQuality>();
     expectTypeOf<Skill>().toEqualTypeOf<"reading" | "listening" | "writing" | "speaking">();
     expectTypeOf<CefrLevel>().toEqualTypeOf<number>();
+    expectTypeOf<TutorState>().toEqualTypeOf<
+      "idle" | "listening" | "thinking" | "speaking" | "celebrating" | "encouraging"
+    >();
+    expectTypeOf<MouthShape>().toEqualTypeOf<"rest" | "A" | "E" | "O" | "U" | "MBP" | "FV">();
   });
 });

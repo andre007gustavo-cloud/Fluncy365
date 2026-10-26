@@ -26,6 +26,7 @@ export default defineConfig({
         "src/domain/entities/lesson.ts",
         "src/domain/entities/session.ts",
         "src/domain/entities/student.ts",
+        "src/domain/entities/tutor.ts",
       ],
       thresholds: {
         lines: 80,
