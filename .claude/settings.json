@@ -19,7 +19,8 @@
       "Bash(node C:/Users/FAMA EMBALAGENS/Documents/CENTRAL/scripts/*)",
       "Bash(node \"C:/Users/FAMA EMBALAGENS/Documents/CENTRAL/scripts/*)",
       "Bash(npm run typecheck *)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Read(//c/Users/FAMA EMBALAGENS/Documents/CENTRAL/**)"
     ],
     "deny": [
       "Bash(git push --force *)",
