@@ -8,6 +8,7 @@ import type {
   StreakRepositoryPort,
   StudentModelRepositoryPort,
 } from "@/domain/ports/student-repository.port";
+import { DEFAULT_COURSE_ID } from "./course";
 import type { Database } from "./database.types";
 
 export type Supabase = SupabaseClient<Database>;
@@ -77,6 +78,7 @@ export class SupabaseSrsCardRepository implements SrsCardRepositoryPort {
       .from("srs_cards")
       .select("id, front, back, type, ease, interval_days, due_at, lapses, source_lesson_id")
       .eq("user_id", userId)
+      .eq("course_id", DEFAULT_COURSE_ID)
       .order("due_at", { ascending: true });
 
     if (error) fail("listAll srs_cards", error);
@@ -91,6 +93,7 @@ export class SupabaseSrsCardRepository implements SrsCardRepositoryPort {
       .from("srs_cards")
       .select("id, front, back, type, ease, interval_days, due_at, lapses, source_lesson_id")
       .eq("user_id", userId)
+      .eq("course_id", DEFAULT_COURSE_ID)
       .lte("due_at", now.toISOString())
       .order("due_at", { ascending: true })
       .limit(Math.max(0, limit));
@@ -109,6 +112,7 @@ export class SupabaseSrsCardRepository implements SrsCardRepositoryPort {
       cards.map((card) => ({
         id: card.id,
         user_id: userId,
+        course_id: DEFAULT_COURSE_ID,
         front: card.front,
         back: card.back,
         type: card.type,
@@ -132,6 +136,7 @@ export class SupabaseStudentModelRepository implements StudentModelRepositoryPor
       .from("student_models")
       .select("user_id, levels, vocab_size, pace, updated_at")
       .eq("user_id", userId)
+      .eq("course_id", DEFAULT_COURSE_ID)
       .maybeSingle();
 
     if (error) fail("load student_models", error);
@@ -148,13 +153,17 @@ export class SupabaseStudentModelRepository implements StudentModelRepositoryPor
   }
 
   async save(model: StudentModel): Promise<void> {
-    const { error } = await this.supabase.from("student_models").upsert({
-      user_id: model.userId,
-      levels: model.levels,
-      vocab_size: model.vocabSize,
-      pace: model.pace,
-      updated_at: model.updatedAt.toISOString(),
-    });
+    const { error } = await this.supabase.from("student_models").upsert(
+      {
+        user_id: model.userId,
+        course_id: DEFAULT_COURSE_ID,
+        levels: model.levels,
+        vocab_size: model.vocabSize,
+        pace: model.pace,
+        updated_at: model.updatedAt.toISOString(),
+      },
+      { onConflict: "user_id,course_id" },
+    );
 
     if (error) fail("save student_models", error);
   }
@@ -168,6 +177,7 @@ export class SupabaseStreakRepository implements StreakRepositoryPort {
       .from("gamification")
       .select("streak")
       .eq("user_id", userId)
+      .eq("course_id", DEFAULT_COURSE_ID)
       .maybeSingle();
 
     if (error) fail("load gamification", error);

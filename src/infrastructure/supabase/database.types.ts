@@ -20,6 +20,7 @@ export type JwRefTypeRow = "article" | "audio" | "video";
 export type SrsCardRow = {
   id: string;
   user_id: string;
+  course_id: string;
   front: string;
   back: string;
   type: SrsItemTypeRow;
@@ -33,6 +34,7 @@ export type SrsCardRow = {
 
 export type StudentModelRow = {
   user_id: string;
+  course_id: string;
   levels: Record<Skill, number>;
   vocab_size: number;
   pace: { avgSecondsPerExercise: number; sessionCompletionRate: number; usualHour: number | null };
@@ -41,12 +43,21 @@ export type StudentModelRow = {
 
 export type GamificationRow = {
   user_id: string;
+  course_id: string;
   xp_total: number;
   evolution_xp: number;
   avatar_stage: number;
   unlocked_traits: string[];
   streak: { current: number; best: number; shieldsLeft: number; lastDay: string | null };
   updated_at: string;
+};
+
+export type CourseRow = {
+  id: string;
+  name: string;
+  ai_level: "full" | "corpus_only";
+  audio: "tts" | "link_only";
+  visibility: "shared" | "owner_only";
 };
 
 export type ProfileRow = {
@@ -60,6 +71,12 @@ export type ProfileRow = {
 export interface Database {
   public: {
     Tables: {
+      courses: {
+        Row: CourseRow;
+        Insert: CourseRow;
+        Update: Partial<CourseRow>;
+        Relationships: [];
+      };
       profiles: {
         Row: ProfileRow;
         Insert: Partial<ProfileRow> & { id: string };
@@ -68,7 +85,7 @@ export interface Database {
       };
       student_models: {
         Row: StudentModelRow;
-        Insert: Partial<StudentModelRow> & { user_id: string };
+        Insert: Partial<StudentModelRow> & { user_id: string; course_id: string };
         Update: Partial<StudentModelRow>;
         Relationships: [];
       };
@@ -80,13 +97,13 @@ export interface Database {
       };
       gamification: {
         Row: GamificationRow;
-        Insert: Partial<GamificationRow> & { user_id: string };
+        Insert: Partial<GamificationRow> & { user_id: string; course_id: string };
         Update: Partial<GamificationRow>;
         Relationships: [];
       };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: { tables_without_rls: { Args: Record<string, never>; Returns: string[] } };
     Enums: {
       skill: Skill;
       topic_status: TopicStatusRow;
