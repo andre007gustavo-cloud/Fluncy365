@@ -27,7 +27,7 @@ Nunca implemente funcionalidades de fases futuras sem pedido explícito. Ideias 
 ```
 src/domain/          entidades, value-objects, serviços puros, ports (interfaces)
 src/application/     casos de uso (1 arquivo = 1 caso de uso)
-src/infrastructure/  implementações dos ports (supabase/, anthropic/, speech/, local/, clock/, fakes/)
+src/infrastructure/  implementações dos ports (supabase/, anthropic/, speech/, voice/, local/, clock/, fakes/)
 src/presentation/    React (componentes, hooks, screens, i18n, estilos)
 src/app/             rotas do Next (App Router) — cascas finas que chamam screens
 src/middleware.ts    renovação da sessão + proteção de rotas
@@ -49,10 +49,10 @@ docs/                documentação
 - **S**: regra de negócio só em `domain`/`application`; componentes de UI apenas exibem e delegam.
 - **O**: novo tipo de exercício = nova implementação de `Exercise` + renderer registrado; não modifique o session player nem o avaliador existentes.
 - **L**: todo `ExerciseEvaluator` (determinístico ou IA) respeita o mesmo contrato `EvaluationResult`.
-- **I**: ports pequenos e específicos; não crie interfaces "faz-tudo".
+- **I**: ports pequenos e específicos; não crie interfaces "faz-tudo". `SpeechPort` só ouve; `VoicePort` só fala (ADR-003).
 - **D**: dependa das interfaces em `domain/ports`; implementações são injetadas em `src/di.ts`.
 
-Os contratos centrais (Exercise, EvaluationResult, ExerciseEvaluator, AiTutorPort, SrsScheduler, GenerateDailySession) estão na seção 13 do planejamento — implemente-os fielmente e evolua-os com parcimônia.
+Os contratos centrais (Exercise, EvaluationResult, ExerciseEvaluator, AiTutorPort, SrsScheduler, GenerateDailySession, VoicePort, TutorState, MouthShape) estão na seção 13 do planejamento — implemente-os fielmente e evolua-os com parcimônia.
 
 ## Convenções de código
 

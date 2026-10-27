@@ -22,10 +22,12 @@ export default defineConfig({
         // executavel, entao apareceriam eternamente como 0% e mascarariam
         // a cobertura real da logica.
         "src/domain/ports/**",
+        "src/application/generate-daily-session.ts",
         "src/domain/entities/exercise.ts",
         "src/domain/entities/lesson.ts",
         "src/domain/entities/session.ts",
         "src/domain/entities/student.ts",
+        "src/domain/entities/tutor.ts",
       ],
       thresholds: {
         lines: 80,
