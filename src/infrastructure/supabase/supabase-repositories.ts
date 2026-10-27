@@ -203,7 +203,8 @@ export class SupabaseStreakRepository implements StreakRepositoryPort {
     const { error } = await this.supabase
       .from("gamification")
       .update({ streak: streakToJson(streak), updated_at: new Date().toISOString() })
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .eq("course_id", DEFAULT_COURSE_ID);
 
     if (error) fail("save gamification", error);
   }
