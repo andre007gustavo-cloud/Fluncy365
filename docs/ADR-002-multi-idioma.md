@@ -98,3 +98,14 @@ Dívidas registradas:
 - Índices de `course_id` em `content_*` quando houver volume.
 - Conferir no painel do projeto real a confirmação de e-mail e a política de senha (o
   `config.toml` só vale para o ambiente local).
+
+## Verificação (F0.2)
+
+Em 2026-10-27:
+
+- Schema (migrations `0001`, `20261027120000` e `20261027130000`) aplicado no projeto Supabase
+  real com `supabase db push`.
+- Teste de integração de RLS com 47 casos passando contra o banco real.
+- Login e logout por e-mail e por Google testados manualmente pelo André em `localhost:3000`, com
+  sucesso.
+- As dívidas da ADR-001 sobre teste de isolamento e tipos gerados ficam pagas.
