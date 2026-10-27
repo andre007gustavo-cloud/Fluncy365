@@ -95,6 +95,9 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
   const unitId = `test-unit-${suffix}`;
   const lessonId = `test-lesson-${suffix}`;
   const jwRefId = `test-jw-${suffix}`;
+  const hiddenUnitId = `test-hunit-${suffix}`;
+  const hiddenLessonId = `test-hlesson-${suffix}`;
+  const hiddenJwRefId = `test-hjw-${suffix}`;
   const costDay = "2000-01-01";
 
   let admin: SupabaseClient;
@@ -102,6 +105,7 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
   let clientA: SupabaseClient;
   let clientB: SupabaseClient;
   let userIdA = "";
+  let userIdB = "";
   const createdUserIds: string[] = [];
 
   async function createSignedInUser(label: string) {
@@ -135,7 +139,7 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
     anon = createClient(url, anonKey, { auth: authOptions });
 
     ({ client: clientA, userId: userIdA } = await createSignedInUser("a"));
-    ({ client: clientB } = await createSignedInUser("b"));
+    ({ client: clientB, userId: userIdB } = await createSignedInUser("b"));
 
     for (const spec of STUDENT_TABLES) {
       const { error } = await clientA
@@ -144,13 +148,27 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
       if (error) throw new Error(`A grava ${spec.table}: ${error.message}`);
     }
 
+    const course = await admin.from("courses").insert({
+      id: ownerOnlyCourseId,
+      name: "Curso de teste",
+      ai_level: "corpus_only",
+      audio: "link_only",
+      visibility: "owner_only",
+    });
+    if (course.error) throw new Error(`seed curso: ${course.error.message}`);
+
     const seeds = [
-      admin.from("courses").insert({
-        id: ownerOnlyCourseId,
-        name: "Curso de teste",
-        ai_level: "corpus_only",
-        audio: "link_only",
-        visibility: "owner_only",
+      admin
+        .from("content_units")
+        .insert({ id: hiddenUnitId, month: 1, week: 1, level: 1, course_id: ownerOnlyCourseId }),
+      admin.from("content_jw_refs").insert({
+        id: hiddenJwRefId,
+        url: "https://example.com",
+        title: "t",
+        type: "article",
+        level: 1,
+        minutes: 1,
+        course_id: ownerOnlyCourseId,
       }),
       admin.from("content_units").insert({ id: unitId, month: 1, week: 1, level: 1 }),
       admin.from("content_jw_refs").insert({
@@ -161,7 +179,7 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
         level: 1,
         minutes: 1,
       }),
-      admin.from("admin_costs").insert({ day: costDay }),
+      admin.from("admin_costs").insert({ day: costDay, course_id: ownerOnlyCourseId }),
     ];
     for (const { error } of await Promise.all(seeds)) {
       if (error) throw new Error(`seed: ${error.message}`);
@@ -170,13 +188,20 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
       .from("content_lessons")
       .insert({ id: lessonId, unit_id: unitId, day_index: 1 });
     if (lesson.error) throw new Error(`seed lição: ${lesson.error.message}`);
+    const hiddenLesson = await admin.from("content_lessons").insert({
+      id: hiddenLessonId,
+      unit_id: hiddenUnitId,
+      day_index: 1,
+      course_id: ownerOnlyCourseId,
+    });
+    if (hiddenLesson.error) throw new Error(`seed lição oculta: ${hiddenLesson.error.message}`);
   }, NETWORK_TIMEOUT_MS);
 
   afterAll(async () => {
     if (!admin) return;
-    await admin.from("content_units").delete().eq("id", unitId);
-    await admin.from("content_jw_refs").delete().eq("id", jwRefId);
-    await admin.from("admin_costs").delete().eq("day", costDay);
+    await admin.from("content_units").delete().in("id", [unitId, hiddenUnitId]);
+    await admin.from("content_jw_refs").delete().in("id", [jwRefId, hiddenJwRefId]);
+    await admin.from("admin_costs").delete().eq("course_id", ownerOnlyCourseId);
     await admin.from("courses").delete().eq("id", ownerOnlyCourseId);
     for (const id of createdUserIds) await admin.auth.admin.deleteUser(id);
   }, NETWORK_TIMEOUT_MS);
@@ -239,7 +264,7 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
         const { error } = await clientB
           .from(spec.table)
           .insert({ ...spec.row, [spec.ownerColumn]: userIdA });
-        expect(error).not.toBeNull();
+        expect(error?.code).toBe("42501");
       },
       NETWORK_TIMEOUT_MS,
     );
@@ -284,6 +309,34 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
           .eq("id", ownerOnlyCourseId);
         expect(error).toBeNull();
         expect(data).toEqual([]);
+      },
+      NETWORK_TIMEOUT_MS,
+    );
+
+    it.each([
+      ["content_units", hiddenUnitId],
+      ["content_lessons", hiddenLessonId],
+      ["content_jw_refs", hiddenJwRefId],
+    ])(
+      "conteúdo de curso owner_only em %s é invisível para não admin",
+      async (table, id) => {
+        const { data, error } = await clientB.from(table).select("id").eq("id", id);
+        expect(error).toBeNull();
+        expect(data).toEqual([]);
+      },
+      NETWORK_TIMEOUT_MS,
+    );
+
+    it.each([
+      ["srs_cards", { front: "a", back: "b" }],
+      ["student_models", { vocab_size: 1 }],
+    ])(
+      "autenticado não grava em %s no curso owner_only",
+      async (table, row) => {
+        const { error } = await clientB
+          .from(table)
+          .insert({ ...row, user_id: userIdB, course_id: ownerOnlyCourseId });
+        expect(error?.code).toBe("42501");
       },
       NETWORK_TIMEOUT_MS,
     );
