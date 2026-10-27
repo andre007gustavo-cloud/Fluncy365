@@ -85,3 +85,16 @@ As tabelas de corpus e léxico da seção 10 do planejamento emakhuwa (`corpus_d
 - Dados atuais migram sem perda: tudo vira `course_id = 'en'`.
 - Enquanto o default existir, um bug que esqueça o `courseId` grava silenciosamente em `'en'`. Por
   isso a dívida deve ser paga antes de ativar o primeiro curso não inglês para usuários.
+
+## Policies de visibilidade de curso e dívidas
+
+A migration `20261027130000` faz as policies de leitura de `content_*` e o `with check` das
+tabelas do aluno exigirem que o curso seja visível (`exists` em `courses`, que já aplica
+`shared` ou admin). Assim um curso `owner_only` não vaza nem recebe dados de não admin.
+
+Dívidas registradas:
+
+- Consistência `content_lessons.course_id` vs. unidade pai (FK composta, futura).
+- Índices de `course_id` em `content_*` quando houver volume.
+- Conferir no painel do projeto real a confirmação de e-mail e a política de senha (o
+  `config.toml` só vale para o ambiente local).
