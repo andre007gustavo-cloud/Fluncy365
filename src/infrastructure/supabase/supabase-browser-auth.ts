@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuthOutcome, AuthPort, AuthenticatedUser } from "@/domain/ports/auth.port";
 import { createSupabaseBrowserClient } from "./client";
 import { siteUrl } from "./env";
@@ -13,7 +14,9 @@ function toMessage(raw: string): string {
 }
 
 export class SupabaseBrowserAuth implements AuthPort {
-  private readonly supabase = createSupabaseBrowserClient();
+  constructor(
+    private readonly supabase: Pick<SupabaseClient, "auth"> = createSupabaseBrowserClient(),
+  ) {}
 
   async signInWithPassword(email: string, password: string): Promise<AuthOutcome> {
     const { error } = await this.supabase.auth.signInWithPassword({ email, password });
@@ -41,7 +44,8 @@ export class SupabaseBrowserAuth implements AuthPort {
   }
 
   async signOut(): Promise<void> {
-    await this.supabase.auth.signOut();
+    const { error } = await this.supabase.auth.signOut();
+    if (error) throw new Error(`Não foi possível sair: ${toMessage(error.message)}`);
   }
 
   async currentUser(): Promise<AuthenticatedUser | null> {
