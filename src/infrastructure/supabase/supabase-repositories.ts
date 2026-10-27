@@ -9,7 +9,7 @@ import type {
   StudentModelRepositoryPort,
 } from "@/domain/ports/student-repository.port";
 import { DEFAULT_COURSE_ID } from "./course";
-import type { Database } from "./database.types";
+import type { Database, Json } from "./database.types";
 
 export type Supabase = SupabaseClient<Database>;
 
@@ -63,6 +63,15 @@ function toSrsCard(row: z.infer<typeof srsCardRowSchema>): SrsCard {
     dueAt: new Date(row.due_at),
     lapses: row.lapses,
     sourceLessonId: row.source_lesson_id,
+  };
+}
+
+function streakToJson(streak: Streak): Json {
+  return {
+    current: streak.current,
+    best: streak.best,
+    shieldsLeft: streak.shieldsLeft,
+    lastDay: streak.lastDay,
   };
 }
 
@@ -159,7 +168,11 @@ export class SupabaseStudentModelRepository implements StudentModelRepositoryPor
         course_id: DEFAULT_COURSE_ID,
         levels: model.levels,
         vocab_size: model.vocabSize,
-        pace: model.pace,
+        pace: {
+          avgSecondsPerExercise: model.pace.avgSecondsPerExercise,
+          sessionCompletionRate: model.pace.sessionCompletionRate,
+          usualHour: model.pace.usualHour,
+        },
         updated_at: model.updatedAt.toISOString(),
       },
       { onConflict: "user_id,course_id" },
@@ -189,7 +202,7 @@ export class SupabaseStreakRepository implements StreakRepositoryPort {
   async save(userId: string, streak: Streak): Promise<void> {
     const { error } = await this.supabase
       .from("gamification")
-      .update({ streak, updated_at: new Date().toISOString() })
+      .update({ streak: streakToJson(streak), updated_at: new Date().toISOString() })
       .eq("user_id", userId);
 
     if (error) fail("save gamification", error);
