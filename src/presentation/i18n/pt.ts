@@ -22,6 +22,7 @@ export const pt = {
     signIn: "Entrar",
     signUp: "Criar conta",
     signOut: "Sair",
+    signOutError: "Não foi possível sair. Tente de novo.",
     withGoogle: "Continuar com Google",
     noAccount: "Ainda não tem conta?",
     hasAccount: "Já tem conta?",
