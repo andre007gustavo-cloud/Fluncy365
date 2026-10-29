@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { createStreak, recordStudyDay, streakAsOf, type Streak } from "./streak";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { createStreak, recordStudyDay, streakAsOf, type Streak, type StreakView } from "./streak";
 
 const base = (over: Partial<Streak>): Streak => ({
   current: 5,
@@ -105,31 +105,49 @@ describe("recordStudyDay", () => {
 });
 
 describe("streakAsOf", () => {
-  it("sem estudo anterior devolve a entrada", () => {
+  const view = (s: Streak, today: string, over: Partial<StreakView> = {}): StreakView => ({
+    kind: "view",
+    current: s.current,
+    best: s.best,
+    shieldsLeft: s.shieldsLeft,
+    lastDay: s.lastDay,
+    asOf: today,
+    ...over,
+  });
+
+  it("sem estudo anterior devolve os mesmos valores", () => {
     const s = createStreak();
-    expect(streakAsOf(s, "2025-03-10")).toEqual(s);
+    expect(streakAsOf(s, "2025-03-10")).toEqual(view(s, "2025-03-10"));
   });
 
   it("hoje, ontem ou relógio voltado: nada muda", () => {
     const s = base({});
-    expect(streakAsOf(s, "2025-03-10")).toEqual(s);
-    expect(streakAsOf(s, "2025-03-11")).toEqual(s);
-    expect(streakAsOf(s, "2025-03-01")).toEqual(s);
+    for (const today of ["2025-03-10", "2025-03-11", "2025-03-01"]) {
+      expect(streakAsOf(s, today)).toEqual(view(s, today));
+    }
   });
 
   it("mostra escudo consumido até ontem sem registrar estudo", () => {
     const s = base({});
-    expect(streakAsOf(s, "2025-03-12")).toEqual({ ...s, shieldsLeft: 1 });
+    expect(streakAsOf(s, "2025-03-12")).toEqual(view(s, "2025-03-12", { shieldsLeft: 1 }));
   });
 
   it("mostra a quebra", () => {
     const s = base({});
-    expect(streakAsOf(s, "2025-03-14")).toEqual({ ...s, current: 0, shieldsLeft: 0 });
+    expect(streakAsOf(s, "2025-03-14")).toEqual(
+      view(s, "2025-03-14", { current: 0, shieldsLeft: 0 }),
+    );
   });
 
   it("mostra escudos do mês atual", () => {
     const s = base({ lastDay: "2025-03-31", shieldsLeft: 0 });
     expect(streakAsOf(s, "2025-04-01").shieldsLeft).toBe(2);
+  });
+
+  it("sequência zerada só renova escudos ao mudar de mês", () => {
+    const s = base({ current: 0, shieldsLeft: 0 });
+    expect(streakAsOf(s, "2025-03-20").shieldsLeft).toBe(0);
+    expect(streakAsOf(s, "2025-04-02").shieldsLeft).toBe(2);
   });
 
   it("não muta a entrada", () => {
@@ -141,5 +159,18 @@ describe("streakAsOf", () => {
 
   it("lança erro com lastDay inválido", () => {
     expect(() => streakAsOf(base({ lastDay: "abc" }), "2025-03-11")).toThrow();
+  });
+
+  it("recordStudyDay após streakAsOf intermediário não cobra escudos duas vezes", () => {
+    const s = base({ lastDay: "2025-03-10" });
+    streakAsOf(s, "2025-03-12");
+    expect(recordStudyDay(s, "2025-03-13")).toEqual(
+      expect.objectContaining({ current: 6, shieldsLeft: 0, lastDay: "2025-03-13" }),
+    );
+  });
+
+  it("StreakView não é atribuível a Streak", () => {
+    expectTypeOf<StreakView>().not.toExtend<Streak>();
+    expectTypeOf<ReturnType<typeof streakAsOf>>().toEqualTypeOf<StreakView>();
   });
 });

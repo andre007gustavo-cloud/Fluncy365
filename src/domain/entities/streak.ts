@@ -8,6 +8,22 @@ export interface Streak {
   readonly shieldsLeft: number;
   /** Ultimo dia estudado, YYYY-MM-DD no fuso do aluno. */
   readonly lastDay: string | null;
+  /** Marca que separa o Streak persistido de uma StreakView (nunca presente aqui). */
+  readonly kind?: undefined;
+}
+
+/**
+ * Projecao so para exibicao: escudos e sequencia ja descontam os dias perdidos
+ * ate `asOf`, mas `lastDay` continua o antigo. Nao e atribuivel a Streak, entao
+ * nao pode ser persistida nem passada a recordStudyDay (cobraria os dias duas vezes).
+ */
+export interface StreakView {
+  readonly kind: "view";
+  readonly current: number;
+  readonly best: number;
+  readonly shieldsLeft: number;
+  readonly lastDay: string | null;
+  readonly asOf: string;
 }
 
 type StudiedStreak = Streak & { readonly lastDay: string };
@@ -36,6 +52,10 @@ function settleMissedDays(
   targetDay: string,
 ): Settlement {
   let { current, shieldsLeft } = streak;
+  if (current === 0) {
+    const sameMonth = monthOf(targetDay) === monthOf(streak.lastDay);
+    return { current, shieldsLeft: sameMonth ? shieldsLeft : MONTHLY_SHIELDS };
+  }
   let shieldMonth = monthOf(streak.lastDay);
 
   for (
@@ -82,12 +102,15 @@ export function recordStudyDay(streak: Streak, day: string): Streak {
   };
 }
 
-export function streakAsOf(streak: Streak, today: string): Streak {
+export function streakAsOf(streak: Streak, today: string): StreakView {
   assertDay(today);
-  if (!hasLastDay(streak)) return streak;
+  const view = { kind: "view", best: streak.best, lastDay: streak.lastDay, asOf: today } as const;
+  if (!hasLastDay(streak))
+    return { ...view, current: streak.current, shieldsLeft: streak.shieldsLeft };
   assertDay(streak.lastDay);
-  if (daysBetween(streak.lastDay, today) <= 0) return streak;
+  if (daysBetween(streak.lastDay, today) <= 0) {
+    return { ...view, current: streak.current, shieldsLeft: streak.shieldsLeft };
+  }
 
-  const settled = settleMissedDays(streak, addDays(today, -1), today);
-  return { ...streak, ...settled };
+  return { ...view, ...settleMissedDays(streak, addDays(today, -1), today) };
 }
