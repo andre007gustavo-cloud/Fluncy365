@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { defaultCache } from "@serwist/next/worker";
+import { PAGES_CACHE_NAME, defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { NetworkOnly, Serwist } from "serwist";
 
@@ -10,6 +10,12 @@ declare global {
 }
 
 declare const self: ServiceWorkerGlobalScope;
+
+// Os caches estáticos casam só pela extensão; limitar a caminhos públicos evita guardar arquivos privados de rotas próprias.
+const PUBLIC_ASSET_PREFIXES = ["/_next/static/", "/icons/", "/apple-touch-icon.png"];
+
+const isPublicAsset = (url: URL) =>
+  PUBLIC_ASSET_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
 
 // Cross-origin fica sem cache por prudência (inclui Supabase e qualquer API externa).
 const isUserDataRequest = ({
@@ -26,7 +32,8 @@ const isUserDataRequest = ({
   request.headers.has("Next-Router-Prefetch") ||
   url.pathname.startsWith("/api/") ||
   url.pathname.startsWith("/auth/") ||
-  !sameOrigin;
+  !sameOrigin ||
+  !isPublicAsset(url);
 
 const PUBLIC_STATIC_CACHES = new Set([
   "static-font-assets",
@@ -40,9 +47,7 @@ const PUBLIC_STATIC_CACHES = new Set([
 
 // Caches de versões anteriores do SW que podem ter guardado páginas ou dados do usuário.
 const LEGACY_CACHE_NAMES = [
-  "pages",
-  "pages-rsc",
-  "pages-rsc-prefetch",
+  ...Object.values(PAGES_CACHE_NAME),
   "apis",
   "others",
   "cross-origin",
