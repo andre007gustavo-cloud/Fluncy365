@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Card, CardDescription, CardTitle } from "@/presentation/components/ui";
 import { pt } from "@/presentation/i18n/pt";
 
@@ -10,6 +11,13 @@ export default function OfflinePage() {
       <Card>
         <CardTitle>{pt.offline.title}</CardTitle>
         <CardDescription>{pt.offline.body}</CardDescription>
+        <Link
+          href="/"
+          prefetch={false}
+          className="mt-4 inline-flex h-11 min-w-11 items-center justify-center rounded-md bg-brand px-5 text-base font-medium text-brand-contrast shadow-card transition-colors hover:bg-brand-strong"
+        >
+          {pt.offline.retry}
+        </Link>
       </Card>
     </main>
   );
