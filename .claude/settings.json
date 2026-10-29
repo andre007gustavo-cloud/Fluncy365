@@ -230,6 +230,18 @@
           }
         ]
       }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["C:/Users/FAMA EMBALAGENS/Documents/CENTRAL/scripts/evento.js"],
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
