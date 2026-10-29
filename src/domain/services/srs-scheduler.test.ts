@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { SRS_MIN_EASE, type ReviewQuality, type SrsCard } from "../entities/srs-card";
-import { Sm2SrsScheduler, nextEase, nextInterval } from "./srs-scheduler";
+import {
+  SRS_MIN_EASE,
+  createSrsCard,
+  type ReviewQuality,
+  type SrsCard,
+} from "../entities/srs-card";
+import { FixedClock } from "../../infrastructure/fakes/in-memory-repositories";
+import { DAILY_REVIEW_LIMIT, Sm2SrsScheduler, nextEase, nextInterval } from "./srs-scheduler";
+import { selectDueCards } from "./select-due-cards";
 
 describe("nextEase", () => {
   it.each([
@@ -169,5 +176,73 @@ describe("Sm2SrsScheduler.dueCards", () => {
       { ...base, id: "future", dueAt: new Date("2026-10-01T00:00:00.000Z"), sourceLessonId: null },
     ] as SrsCard[];
     expect(new Sm2SrsScheduler().dueCards(cards, now, 5).map((c) => c.id)).toEqual(["late"]);
+  });
+});
+
+describe("Sm2SrsScheduler com relogio simulado", () => {
+  const scheduler = new Sm2SrsScheduler();
+  const START = new Date("2026-09-08T12:00:00.000Z");
+
+  it("cartao sempre acertado aparece nos dias 0, 1, 4, 11 e 29; lapso reinicia a sequencia", () => {
+    const clock = new FixedClock(START);
+    let cards: SrsCard[] = [
+      createSrsCard({ id: "steady", front: "a", back: "b", type: "word" }, clock.now()),
+      createSrsCard({ id: "lapsed", front: "c", back: "d", type: "word" }, clock.now()),
+    ];
+    const seen: Record<string, number[]> = { steady: [], lapsed: [] };
+
+    for (let day = 0; day < 60; day++) {
+      const selected = scheduler.dueCards(cards, clock.now(), DAILY_REVIEW_LIMIT);
+      const reviewed = new Map(
+        selected.map((c) => {
+          seen[c.id]!.push(day);
+          const quality: ReviewQuality = c.id === "lapsed" && day === 4 ? 0 : 4;
+          return [c.id, scheduler.review(c, quality, clock.now())] as const;
+        }),
+      );
+      cards = cards.map((c) => reviewed.get(c.id) ?? c);
+      clock.advanceDays(1);
+    }
+
+    expect(seen.steady).toEqual([0, 1, 4, 11, 29]);
+    expect(seen.lapsed).toEqual([0, 1, 4, 5, 8, 15, 27, 47]);
+  });
+
+  it("respeita o teto diario: 20 mais atrasados primeiro, excedente volta no dia seguinte", () => {
+    const clock = new FixedClock(START);
+    const hour = 3_600_000;
+    const make = (id: string, dueAt: Date, lapses = 0): SrsCard => ({
+      ...createSrsCard({ id, front: id, back: id, type: "word" }, dueAt),
+      lapses,
+    });
+    const older = Array.from({ length: 18 }, (_, i) =>
+      make(`old-${String(i).padStart(2, "0")}`, new Date(START.getTime() - (48 + i) * hour)),
+    );
+    const tiedDue = new Date(START.getTime() - 24 * hour);
+    const tied = Array.from({ length: 7 }, (_, i) => make(`tie-${i}`, tiedDue, i));
+    let cards = [...tied, ...older];
+    expect(cards).toHaveLength(25);
+
+    const { selected, overflow } = selectDueCards(cards, clock.now(), DAILY_REVIEW_LIMIT);
+    expect(overflow).toBe(5);
+    expect(selected).toHaveLength(20);
+    expect(selected.slice(0, 18).every((c) => c.id.startsWith("old-"))).toBe(true);
+    expect(selected.slice(18).map((c) => c.id)).toEqual(["tie-6", "tie-5"]);
+
+    const firstDay = scheduler.dueCards(cards, clock.now(), DAILY_REVIEW_LIMIT);
+    expect(firstDay).toHaveLength(20);
+    const reviewed = new Map(firstDay.map((c) => [c.id, scheduler.review(c, 4, clock.now())]));
+    cards = cards.map((c) => reviewed.get(c.id) ?? c);
+    clock.advanceDays(1);
+
+    const nextDay = scheduler.dueCards(cards, clock.now(), DAILY_REVIEW_LIMIT);
+    expect(nextDay).toHaveLength(20);
+    expect(nextDay.slice(0, 5).map((c) => c.id)).toEqual([
+      "tie-4",
+      "tie-3",
+      "tie-2",
+      "tie-1",
+      "tie-0",
+    ]);
   });
 });
