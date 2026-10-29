@@ -1,4 +1,4 @@
-import { addDays, daysBetween, monthOf } from "./streak-calendar";
+import { addDays, assertDay, daysBetween, monthOf } from "./streak-calendar";
 
 export const MONTHLY_SHIELDS = 2;
 
@@ -60,7 +60,7 @@ function settleMissedDays(
 }
 
 export function recordStudyDay(streak: Streak, day: string): Streak {
-  monthOf(day);
+  assertDay(day);
   if (!hasLastDay(streak)) {
     return {
       current: 1,
@@ -69,7 +69,7 @@ export function recordStudyDay(streak: Streak, day: string): Streak {
       lastDay: day,
     };
   }
-  monthOf(streak.lastDay);
+  assertDay(streak.lastDay);
   if (daysBetween(streak.lastDay, day) <= 0) return streak;
 
   const settled = settleMissedDays(streak, addDays(day, -1), day);
@@ -83,9 +83,9 @@ export function recordStudyDay(streak: Streak, day: string): Streak {
 }
 
 export function streakAsOf(streak: Streak, today: string): Streak {
-  monthOf(today);
+  assertDay(today);
   if (!hasLastDay(streak)) return streak;
-  monthOf(streak.lastDay);
+  assertDay(streak.lastDay);
   if (daysBetween(streak.lastDay, today) <= 0) return streak;
 
   const settled = settleMissedDays(streak, addDays(today, -1), today);
