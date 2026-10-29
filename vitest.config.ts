@@ -34,6 +34,12 @@ export default defineConfig({
         functions: 80,
         branches: 80,
         statements: 80,
+        "src/domain/services/evaluators/**": {
+          lines: 90,
+          functions: 90,
+          branches: 90,
+          statements: 90,
+        },
       },
     },
   },
