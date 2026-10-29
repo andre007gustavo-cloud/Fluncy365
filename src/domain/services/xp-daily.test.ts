@@ -156,7 +156,7 @@ describe("anti-farm", () => {
     expect(out.productionBonus).toBe(20);
   });
 
-  it("é idempotente", () => {
+  it("é determinístico: mesma entrada, mesmo resultado", () => {
     const data = base();
     expect(computeDailyXp(data)).toEqual(computeDailyXp(data));
   });
