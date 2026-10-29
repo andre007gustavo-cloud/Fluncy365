@@ -37,3 +37,34 @@ export interface StudySession {
   readonly durationSec: number;
   readonly completed: boolean;
 }
+
+/**
+ * Plano vazio nunca e completo: uma sessao sem atividades nao pode contar como estudo.
+ * Resultados duplicados para a mesma atividade contam uma vez so; ids fora do plano invalidam.
+ */
+export function isPlanFullyAnswered(
+  plan: SessionPlan,
+  results: readonly ActivityResult[],
+): boolean {
+  if (plan.activities.length === 0) return false;
+  const planned = new Set(plan.activities.map((activity) => activity.id));
+  const answered = new Set(results.map((item) => item.activityId));
+  for (const id of answered) {
+    if (!planned.has(id)) return false;
+  }
+  return answered.size === planned.size;
+}
+
+/** Sessao de resgate concluida mantem o streak, igual a sessao normal. */
+export function countsForStreak(session: StudySession): boolean {
+  return session.completed;
+}
+
+export function productionResults(session: StudySession): readonly ActivityResult[] {
+  const productionIds = new Set(
+    session.plan.activities
+      .filter((activity) => activity.block === "production" && activity.exerciseId !== null)
+      .map((activity) => activity.id),
+  );
+  return session.results.filter((item) => productionIds.has(item.activityId));
+}
