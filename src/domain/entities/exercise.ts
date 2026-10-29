@@ -25,7 +25,10 @@ export type AnswerSpec =
       readonly mode: "exact";
       readonly accepted: readonly string[];
       readonly caseSensitive: boolean;
+      /** Quando presente, o aluno escolhe palavras do banco: sem tolerancia ortografica. */
+      readonly wordBank?: readonly string[];
     }
+  | { readonly mode: "truth"; readonly answer: boolean }
   | { readonly mode: "choice"; readonly options: readonly string[]; readonly correctIndex: number }
   | { readonly mode: "sequence"; readonly correctOrder: readonly string[] }
   | { readonly mode: "pairs"; readonly pairs: readonly (readonly [string, string])[] }
@@ -45,6 +48,7 @@ export interface Exercise {
 export type UserAnswer =
   | { readonly kind: "text"; readonly value: string }
   | { readonly kind: "choice"; readonly index: number }
+  | { readonly kind: "truth"; readonly value: boolean }
   | { readonly kind: "sequence"; readonly order: readonly string[] }
   | { readonly kind: "pairs"; readonly pairs: readonly (readonly [string, string])[] }
   | { readonly kind: "audio"; readonly transcript: string; readonly blobRef?: string };
