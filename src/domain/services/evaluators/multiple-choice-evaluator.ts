@@ -1,6 +1,12 @@
 import type { EvaluationResult, Exercise, UserAnswer } from "../../entities/exercise";
 import type { ExerciseEvaluator } from "../../ports/exercise-evaluator.port";
-import { buildResult, InvalidAnswerError, requireSpecAndAnswer } from "./evaluation-result";
+import {
+  InvalidAnswerError,
+  assertSupports,
+  buildResult,
+  praiseFeedback,
+  requireSpecAndAnswer,
+} from "./evaluation-result";
 import { FEEDBACK_MESSAGES } from "./feedback-messages";
 
 const KIND: Exercise["kind"] = "multiple_choice";
@@ -21,9 +27,7 @@ export class MultipleChoiceEvaluator implements ExerciseEvaluator {
   }
 
   async evaluate(exercise: Exercise, answer: UserAnswer): Promise<EvaluationResult> {
-    if (!this.supports(exercise.kind)) {
-      throw new InvalidAnswerError(`Tipo de exercício não suportado: "${exercise.kind}".`);
-    }
+    assertSupports(this, exercise);
     const { spec, answer: choice } = requireSpecAndAnswer(exercise, answer, "choice", "choice");
     const { index } = choice;
     const chosen = optionAt(exercise, spec.options, index);
@@ -34,14 +38,7 @@ export class MultipleChoiceEvaluator implements ExerciseEvaluator {
         exercise,
         correct: true,
         score: 1,
-        feedback: [
-          {
-            excerpt: null,
-            type: "praise",
-            correction: null,
-            explanationPt: FEEDBACK_MESSAGES.correct,
-          },
-        ],
+        feedback: praiseFeedback(),
       });
     }
 

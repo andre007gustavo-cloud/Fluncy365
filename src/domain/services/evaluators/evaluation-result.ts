@@ -6,6 +6,7 @@ import type {
   SrsSignal,
   UserAnswer,
 } from "../../entities/exercise";
+import { FEEDBACK_MESSAGES } from "./feedback-messages";
 
 export class InvalidAnswerError extends Error {
   constructor(message: string) {
@@ -66,4 +67,36 @@ export function requireSpecAndAnswer<M extends AnswerSpec["mode"], K extends Use
     );
   }
   return { spec: exercise.answerSpec as SpecOf<M>, answer: answer as AnswerOf<K> };
+}
+
+export function praiseFeedback(): FeedbackItem[] {
+  return [
+    {
+      excerpt: null,
+      type: "praise",
+      correction: null,
+      explanationPt: FEEDBACK_MESSAGES.correct,
+    },
+  ];
+}
+
+export function assertSupports(
+  evaluator: { supports(kind: Exercise["kind"]): boolean },
+  exercise: Exercise,
+): void {
+  if (!evaluator.supports(exercise.kind)) {
+    throw new InvalidAnswerError(`Tipo de exercício não suportado: "${exercise.kind}".`);
+  }
+}
+
+/** D7: gabarito sem nenhuma variante aceita e conteudo malformado. */
+export function requireAccepted(
+  exercise: Exercise,
+  accepted: readonly string[],
+): readonly [string, ...string[]] {
+  const [first, ...rest] = accepted;
+  if (first === undefined) {
+    throw new InvalidAnswerError(`Exercício ${exercise.id}: o gabarito não tem respostas aceitas.`);
+  }
+  return [first, ...rest];
 }

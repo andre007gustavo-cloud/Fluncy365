@@ -1,6 +1,12 @@
 import type { EvaluationResult, Exercise, FeedbackItem, UserAnswer } from "../../entities/exercise";
 import type { ExerciseEvaluator } from "../../ports/exercise-evaluator.port";
-import { buildResult, InvalidAnswerError, requireSpecAndAnswer } from "./evaluation-result";
+import {
+  assertSupports,
+  buildResult,
+  praiseFeedback,
+  requireAccepted,
+  requireSpecAndAnswer,
+} from "./evaluation-result";
 import { FEEDBACK_MESSAGES } from "./feedback-messages";
 import { diffWords, type WordOp } from "./word-diff";
 
@@ -26,13 +32,13 @@ function compare(reference: string, response: string): Comparison {
   return { ops, score: longest === 0 ? 0 : hits / longest };
 }
 
-function bestComparison(accepted: readonly string[], response: string): Comparison {
-  // O valor inicial evita erro quando nao ha variantes aceitas: a resposta fica toda "sobrando".
-  return accepted
+function bestComparison(accepted: readonly [string, ...string[]], response: string): Comparison {
+  const [first, ...others] = accepted;
+  return others
     .map((reference) => compare(reference, response))
     .reduce(
       (best, current) => (current.score > best.score ? current : best),
-      compare("", response),
+      compare(first, response),
     );
 }
 
@@ -79,12 +85,11 @@ export class DictationEvaluator implements ExerciseEvaluator {
   }
 
   async evaluate(exercise: Exercise, answer: UserAnswer): Promise<EvaluationResult> {
-    if (!this.supports(exercise.kind)) {
-      throw new InvalidAnswerError(`Tipo de exercício não suportado: "${exercise.kind}".`);
-    }
+    assertSupports(this, exercise);
     const { spec, answer: text } = requireSpecAndAnswer(exercise, answer, "exact", "text");
 
-    const { ops, score } = bestComparison(spec.accepted, text.value);
+    const accepted = requireAccepted(exercise, spec.accepted);
+    const { ops, score } = bestComparison(accepted, text.value);
     const hasWords = ops.some((op) => op.type !== "missing");
     if (!hasWords) {
       return buildResult({
@@ -95,7 +100,7 @@ export class DictationEvaluator implements ExerciseEvaluator {
           {
             excerpt: null,
             type: "content",
-            correction: spec.accepted[0] ?? "",
+            correction: accepted[0],
             explanationPt: FEEDBACK_MESSAGES.emptyAnswer,
           },
         ],
@@ -108,14 +113,7 @@ export class DictationEvaluator implements ExerciseEvaluator {
         exercise,
         correct: true,
         score: 1,
-        feedback: [
-          {
-            excerpt: null,
-            type: "praise",
-            correction: null,
-            explanationPt: FEEDBACK_MESSAGES.correct,
-          },
-        ],
+        feedback: praiseFeedback(),
       });
     }
 

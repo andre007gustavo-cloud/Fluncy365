@@ -26,6 +26,27 @@ const pairs = (...items: [string, string][]): UserAnswer => ({ kind: "pairs", pa
 const evaluator = new MatchEvaluator();
 
 describe("MatchEvaluator", () => {
+  it("rejeita gabarito sem pares", async () => {
+    const empty: Exercise = { ...exercise, answerSpec: { mode: "pairs", pairs: [] } };
+    await expect(evaluator.evaluate(empty, pairs())).rejects.toBeInstanceOf(InvalidAnswerError);
+  });
+
+  it("rejeita gabarito com lado esquerdo repetido", async () => {
+    const duplicated: Exercise = {
+      ...exercise,
+      answerSpec: {
+        mode: "pairs",
+        pairs: [
+          ["cat", "gato"],
+          ["cat", "felino"],
+        ],
+      },
+    };
+    await expect(evaluator.evaluate(duplicated, pairs(["cat", "gato"]))).rejects.toThrow(
+      /gabarito/,
+    );
+  });
+
   it("suporta apenas match", () => {
     expect(evaluator.supports("match")).toBe(true);
     expect(evaluator.supports("reorder")).toBe(false);

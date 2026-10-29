@@ -36,7 +36,7 @@ describe("TrueFalseEvaluator", () => {
     expect(result.score).toBe(0);
     expect(result.errorCodes).toEqual(["tf_wrong"]);
     expect(result.feedback[0]?.explanationPt).toBe(FEEDBACK_MESSAGES.wrongTruth(false));
-    expect(result.feedback[0]?.correction).toBe("false");
+    expect(result.feedback[0]?.correction).toBeNull();
     expect(result.srsSignal).toEqual([{ itemId: "w1", quality: 0 }]);
   });
 
@@ -44,7 +44,7 @@ describe("TrueFalseEvaluator", () => {
     const trueExercise: Exercise = { ...exercise, answerSpec: { mode: "truth", answer: true } };
     const result = await evaluator.evaluate(trueExercise, { kind: "truth", value: false });
     expect(result.correct).toBe(false);
-    expect(result.feedback[0]?.correction).toBe("true");
+    expect(result.feedback[0]?.correction).toBeNull();
     expect(result.feedback[0]?.explanationPt).toBe(FEEDBACK_MESSAGES.wrongTruth(true));
   });
 

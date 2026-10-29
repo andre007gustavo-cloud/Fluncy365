@@ -1,6 +1,12 @@
 import type { EvaluationResult, Exercise, UserAnswer } from "../../entities/exercise";
 import type { ExerciseEvaluator } from "../../ports/exercise-evaluator.port";
-import { buildResult, InvalidAnswerError, requireSpecAndAnswer } from "./evaluation-result";
+import {
+  InvalidAnswerError,
+  assertSupports,
+  buildResult,
+  praiseFeedback,
+  requireSpecAndAnswer,
+} from "./evaluation-result";
 import { FEEDBACK_MESSAGES } from "./feedback-messages";
 import { lcsLength } from "./word-diff";
 
@@ -24,9 +30,7 @@ export class ReorderEvaluator implements ExerciseEvaluator {
   }
 
   async evaluate(exercise: Exercise, answer: UserAnswer): Promise<EvaluationResult> {
-    if (!this.supports(exercise.kind)) {
-      throw new InvalidAnswerError(`Tipo de exercício não suportado: "${exercise.kind}".`);
-    }
+    assertSupports(this, exercise);
     const { spec, answer: sequence } = requireSpecAndAnswer(
       exercise,
       answer,
@@ -47,14 +51,7 @@ export class ReorderEvaluator implements ExerciseEvaluator {
         exercise,
         correct: true,
         score: 1,
-        feedback: [
-          {
-            excerpt: null,
-            type: "praise",
-            correction: null,
-            explanationPt: FEEDBACK_MESSAGES.correct,
-          },
-        ],
+        feedback: praiseFeedback(),
       });
     }
 

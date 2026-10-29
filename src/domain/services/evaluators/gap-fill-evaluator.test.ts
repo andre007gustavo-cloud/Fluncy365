@@ -138,9 +138,22 @@ describe("GapFillEvaluator", () => {
     expect(result.feedback[0]?.correction).toBe("went");
   });
 
-  it("não quebra com gabarito sem respostas aceitas", async () => {
-    const result = await evaluator.evaluate(gap([]), text(""));
-    expect(result.feedback[0]?.correction).toBe("");
+  it("rejeita gabarito sem respostas aceitas como conteúdo malformado", async () => {
+    await expect(evaluator.evaluate(gap([]), text("went"))).rejects.toBeInstanceOf(
+      InvalidAnswerError,
+    );
+  });
+
+  it("não tolera erro em resposta de várias palavras", async () => {
+    const result = await evaluator.evaluate(gap(["we do"]), text("we go"));
+    expect(result.correct).toBe(false);
+  });
+
+  it("mostra no feedback de grafia a variante que casou", async () => {
+    const result = await evaluator.evaluate(gap(["library", "museum"]), text("musem"));
+    expect(result.correct).toBe(true);
+    expect(result.feedback[0]).toMatchObject({ type: "spelling", correction: "museum" });
+    expect(result.feedback[0]?.explanationPt).toBe(FEEDBACK_MESSAGES.correctWithSpelling("museum"));
   });
 
   it("rejeita resposta de tipo incompatível", async () => {

@@ -143,11 +143,18 @@ describe("DictationEvaluator", () => {
     expect(result.score).toBe(0);
   });
 
-  it("sem variantes aceitas, qualquer resposta é errada e vazia não quebra", async () => {
-    const none = dictation([]);
-    expect((await evaluator.evaluate(none, text("hello"))).correct).toBe(false);
-    const empty = await evaluator.evaluate(none, text(""));
-    expect(empty.feedback[0]).toMatchObject({ correction: "" });
+  it("rejeita gabarito sem variantes aceitas como conteúdo malformado", async () => {
+    await expect(evaluator.evaluate(dictation([]), text("hello"))).rejects.toBeInstanceOf(
+      InvalidAnswerError,
+    );
+  });
+
+  it("ditado totalmente errado ainda mostra a correção", async () => {
+    const result = await evaluator.evaluate(dictation(["tea"]), text("coffee"));
+    expect(result.correct).toBe(false);
+    expect(result.score).toBe(0);
+    expect(result.errorCodes).toEqual(["dictation_wrong_word"]);
+    expect(result.feedback[0]).toMatchObject({ excerpt: "coffee", correction: "tea" });
   });
 
   it("rejeita resposta de tipo errado", async () => {

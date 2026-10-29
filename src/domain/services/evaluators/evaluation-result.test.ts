@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Exercise } from "../../entities/exercise";
 import {
+  assertSupports,
   buildResult,
   InvalidAnswerError,
+  praiseFeedback,
   qualityFor,
+  requireAccepted,
   requireSpecAndAnswer,
 } from "./evaluation-result";
 import { FEEDBACK_MESSAGES } from "./feedback-messages";
@@ -99,6 +102,36 @@ describe("requireSpecAndAnswer", () => {
     expect(() =>
       requireSpecAndAnswer(exercise, { kind: "text", value: "x" }, "truth", "truth"),
     ).toThrow(/esperada resposta "truth"/);
+  });
+});
+
+describe("praiseFeedback", () => {
+  it("devolve um unico item de elogio", () => {
+    expect(praiseFeedback()).toEqual([
+      {
+        excerpt: null,
+        type: "praise",
+        correction: null,
+        explanationPt: FEEDBACK_MESSAGES.correct,
+      },
+    ]);
+  });
+});
+
+describe("assertSupports", () => {
+  it("aceita exercicio do tipo suportado e rejeita outro", () => {
+    const evaluator = { supports: (kind: Exercise["kind"]) => kind === "true_false" };
+    expect(() => assertSupports(evaluator, exercise)).not.toThrow();
+    expect(() => assertSupports(evaluator, { ...exercise, kind: "match" })).toThrow(
+      InvalidAnswerError,
+    );
+  });
+});
+
+describe("requireAccepted", () => {
+  it("devolve as variantes e rejeita lista vazia", () => {
+    expect(requireAccepted(exercise, ["a", "b"])).toEqual(["a", "b"]);
+    expect(() => requireAccepted(exercise, [])).toThrow(InvalidAnswerError);
   });
 });
 

@@ -1,6 +1,12 @@
 import type { EvaluationResult, Exercise, FeedbackItem, UserAnswer } from "../../entities/exercise";
 import type { ExerciseEvaluator } from "../../ports/exercise-evaluator.port";
-import { buildResult, InvalidAnswerError, requireSpecAndAnswer } from "./evaluation-result";
+import {
+  InvalidAnswerError,
+  assertSupports,
+  buildResult,
+  praiseFeedback,
+  requireSpecAndAnswer,
+} from "./evaluation-result";
 import { FEEDBACK_MESSAGES } from "./feedback-messages";
 
 const KIND: Exercise["kind"] = "match";
@@ -8,6 +14,23 @@ const KIND: Exercise["kind"] = "match";
 type Pairs = readonly (readonly [string, string])[];
 
 // D7: item da esquerda fora do gabarito ou repetido é entrada malformada, não resposta errada.
+// D7: gabarito vazio ou com lado esquerdo repetido é conteúdo malformado.
+function indexKey(exercise: Exercise, pairs: Pairs): Map<string, string> {
+  if (pairs.length === 0) {
+    throw new InvalidAnswerError(`Exercício ${exercise.id}: o gabarito não tem pares.`);
+  }
+  const key = new Map<string, string>();
+  for (const [left, right] of pairs) {
+    if (key.has(left)) {
+      throw new InvalidAnswerError(
+        `Exercício ${exercise.id}: "${left}" aparece mais de uma vez no gabarito.`,
+      );
+    }
+    key.set(left, right);
+  }
+  return key;
+}
+
 function indexByLeft(
   exercise: Exercise,
   key: ReadonlyMap<string, string>,
@@ -34,11 +57,9 @@ export class MatchEvaluator implements ExerciseEvaluator {
   }
 
   async evaluate(exercise: Exercise, answer: UserAnswer): Promise<EvaluationResult> {
-    if (!this.supports(exercise.kind)) {
-      throw new InvalidAnswerError(`Tipo de exercício não suportado: "${exercise.kind}".`);
-    }
+    assertSupports(this, exercise);
     const { spec, answer: pairs } = requireSpecAndAnswer(exercise, answer, "pairs", "pairs");
-    const key = new Map(spec.pairs);
+    const key = indexKey(exercise, spec.pairs);
     const byLeft = indexByLeft(exercise, key, pairs.pairs);
 
     const feedback: FeedbackItem[] = [];
@@ -58,14 +79,7 @@ export class MatchEvaluator implements ExerciseEvaluator {
         exercise,
         correct: true,
         score: 1,
-        feedback: [
-          {
-            excerpt: null,
-            type: "praise",
-            correction: null,
-            explanationPt: FEEDBACK_MESSAGES.correct,
-          },
-        ],
+        feedback: praiseFeedback(),
       });
     }
 
