@@ -1,6 +1,7 @@
 import "server-only";
 import { GetTodayOverview } from "@/application/get-today-overview";
 import { SystemClock } from "@/infrastructure/clock/system-clock";
+import { SupabaseFeatureFlags } from "@/infrastructure/supabase/supabase-feature-flags";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server";
 import {
   SupabaseSrsCardRepository,
@@ -21,9 +22,12 @@ export async function serverContainer() {
   const streaks = new SupabaseStreakRepository(supabase);
   const studentModels = new SupabaseStudentModelRepository(supabase);
 
+  const featureFlags = new SupabaseFeatureFlags(supabase);
+
   return {
     clock,
     supabase,
+    featureFlags,
     useCases: {
       getTodayOverview: new GetTodayOverview({ clock, srsCards, streaks, studentModels }),
     },

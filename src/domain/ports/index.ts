@@ -5,3 +5,4 @@ export * from "./ai-tutor.port";
 export * from "./exercise-evaluator.port";
 export * from "./speech.port";
 export * from "./voice.port";
+export * from "./feature-flag.port";
