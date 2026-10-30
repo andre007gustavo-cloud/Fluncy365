@@ -35,13 +35,13 @@ afterEach(() => {
 
 describe("DexieStudentModelRepository", () => {
   it("devolve null quando nao ha modelo", async () => {
-    expect(await repo.load("u1")).toBeNull();
+    expect(await repo.load("u1", "en")).toBeNull();
   });
 
   it("salva, le de volta com Date e enfileira a operacao", async () => {
-    await repo.save(model("u1"));
+    await repo.save(model("u1"), "en");
 
-    expect(await repo.load("u1")).toEqual(model("u1"));
+    expect(await repo.load("u1", "en")).toEqual(model("u1"));
     const pending = await new OfflineQueue(db, new FixedClock(NOW))
       .pending("u1")
       .then((q) => q.operations);
@@ -49,8 +49,8 @@ describe("DexieStudentModelRepository", () => {
   });
 
   it("duas gravacoes viram uma operacao pendente com o ultimo estado", async () => {
-    await repo.save(model("u1", 100));
-    await repo.save(model("u1", 200));
+    await repo.save(model("u1", 100), "en");
+    await repo.save(model("u1", 200), "en");
 
     const pending = await new OfflineQueue(db, new FixedClock(NOW))
       .pending("u1")
@@ -60,23 +60,23 @@ describe("DexieStudentModelRepository", () => {
   });
 
   it("isola por usuario", async () => {
-    await repo.save(model("u1"));
+    await repo.save(model("u1"), "en");
 
-    expect(await repo.load("u2")).toBeNull();
+    expect(await repo.load("u2", "en")).toBeNull();
   });
 
   it("desfaz a gravacao local quando o enqueue falha", async () => {
     vi.spyOn(OfflineQueue.prototype, "enqueue").mockRejectedValueOnce(new Error("falha"));
 
-    await expect(repo.save(model("u1"))).rejects.toThrow("falha");
+    await expect(repo.save(model("u1"), "en")).rejects.toThrow("falha");
 
-    expect(await repo.load("u1")).toBeNull();
+    expect(await repo.load("u1", "en")).toBeNull();
   });
 
   it("applyRemote grava sem enfileirar", async () => {
     await repo.applyRemote(model("u1"));
 
-    expect(await repo.load("u1")).toEqual(model("u1"));
+    expect(await repo.load("u1", "en")).toEqual(model("u1"));
     expect(await db.outbox.count()).toBe(0);
   });
 });

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { SrsCard } from "@/domain/entities/srs-card";
 import type { StudentError, StudentModel, TopicMastery } from "@/domain/entities/student";
 import { MONTHLY_SHIELDS, type Streak } from "@/domain/entities/streak";
+import type { CourseId } from "@/domain/value-objects/course-id";
 import { SKILLS } from "@/domain/value-objects/skill";
 import type {
   ErrorLogRepositoryPort,
@@ -11,7 +12,6 @@ import type {
   StudentModelRepositoryPort,
   TopicMasteryRepositoryPort,
 } from "@/domain/ports/student-repository.port";
-import { DEFAULT_COURSE_ID } from "./course";
 import type { Database, Json } from "./database.types";
 
 export type Supabase = SupabaseClient<Database>;
@@ -84,10 +84,10 @@ export function topicMasteryFromRow(row: unknown): TopicMastery {
   };
 }
 
-export function topicMasteryToRow(userId: string, mastery: TopicMastery) {
+export function topicMasteryToRow(userId: string, courseId: CourseId, mastery: TopicMastery) {
   return {
     user_id: userId,
-    course_id: DEFAULT_COURSE_ID,
+    course_id: courseId,
     topic_id: mastery.topicId,
     accuracy: mastery.accuracy,
     attempts: mastery.attempts,
@@ -108,10 +108,10 @@ export function studentErrorFromRow(row: unknown): StudentError {
   };
 }
 
-export function studentErrorToRow(userId: string, error: StudentError) {
+export function studentErrorToRow(userId: string, courseId: CourseId, error: StudentError) {
   return {
     user_id: userId,
-    course_id: DEFAULT_COURSE_ID,
+    course_id: courseId,
     code: error.code,
     example: error.example,
     count: error.count,
@@ -150,12 +150,12 @@ function fail(context: string, error: { message: string }): never {
 export class SupabaseSrsCardRepository implements SrsCardRepositoryPort {
   constructor(private readonly supabase: Supabase) {}
 
-  async listAll(userId: string): Promise<readonly SrsCard[]> {
+  async listAll(userId: string, courseId: CourseId): Promise<readonly SrsCard[]> {
     const { data, error } = await this.supabase
       .from("srs_cards")
       .select("id, front, back, type, ease, interval_days, due_at, lapses, source_lesson_id")
       .eq("user_id", userId)
-      .eq("course_id", DEFAULT_COURSE_ID)
+      .eq("course_id", courseId)
       .order("due_at", { ascending: true });
 
     if (error) fail("listAll srs_cards", error);
@@ -165,12 +165,17 @@ export class SupabaseSrsCardRepository implements SrsCardRepositoryPort {
       .map(toSrsCard);
   }
 
-  async listDue(userId: string, now: Date, limit: number): Promise<readonly SrsCard[]> {
+  async listDue(
+    userId: string,
+    courseId: CourseId,
+    now: Date,
+    limit: number,
+  ): Promise<readonly SrsCard[]> {
     const { data, error } = await this.supabase
       .from("srs_cards")
       .select("id, front, back, type, ease, interval_days, due_at, lapses, source_lesson_id")
       .eq("user_id", userId)
-      .eq("course_id", DEFAULT_COURSE_ID)
+      .eq("course_id", courseId)
       .lte("due_at", now.toISOString())
       .order("due_at", { ascending: true })
       .limit(Math.max(0, limit));
@@ -182,14 +187,14 @@ export class SupabaseSrsCardRepository implements SrsCardRepositoryPort {
       .map(toSrsCard);
   }
 
-  async upsertMany(userId: string, cards: readonly SrsCard[]): Promise<void> {
+  async upsertMany(userId: string, courseId: CourseId, cards: readonly SrsCard[]): Promise<void> {
     if (cards.length === 0) return;
 
     const { error } = await this.supabase.from("srs_cards").upsert(
       cards.map((card) => ({
         id: card.id,
         user_id: userId,
-        course_id: DEFAULT_COURSE_ID,
+        course_id: courseId,
         front: card.front,
         back: card.back,
         type: card.type,
@@ -208,12 +213,12 @@ export class SupabaseSrsCardRepository implements SrsCardRepositoryPort {
 export class SupabaseStudentModelRepository implements StudentModelRepositoryPort {
   constructor(private readonly supabase: Supabase) {}
 
-  async load(userId: string): Promise<StudentModel | null> {
+  async load(userId: string, courseId: CourseId): Promise<StudentModel | null> {
     const { data, error } = await this.supabase
       .from("student_models")
       .select("user_id, levels, vocab_size, pace, updated_at")
       .eq("user_id", userId)
-      .eq("course_id", DEFAULT_COURSE_ID)
+      .eq("course_id", courseId)
       .maybeSingle();
 
     if (error) fail("load student_models", error);
@@ -229,11 +234,11 @@ export class SupabaseStudentModelRepository implements StudentModelRepositoryPor
     };
   }
 
-  async save(model: StudentModel): Promise<void> {
+  async save(model: StudentModel, courseId: CourseId): Promise<void> {
     const { error } = await this.supabase.from("student_models").upsert(
       {
         user_id: model.userId,
-        course_id: DEFAULT_COURSE_ID,
+        course_id: courseId,
         levels: model.levels,
         vocab_size: model.vocabSize,
         pace: {
@@ -253,12 +258,12 @@ export class SupabaseStudentModelRepository implements StudentModelRepositoryPor
 export class SupabaseStreakRepository implements StreakRepositoryPort {
   constructor(private readonly supabase: Supabase) {}
 
-  async load(userId: string): Promise<Streak> {
+  async load(userId: string, courseId: CourseId): Promise<Streak> {
     const { data, error } = await this.supabase
       .from("gamification")
       .select("streak")
       .eq("user_id", userId)
-      .eq("course_id", DEFAULT_COURSE_ID)
+      .eq("course_id", courseId)
       .maybeSingle();
 
     if (error) fail("load gamification", error);
@@ -267,13 +272,13 @@ export class SupabaseStreakRepository implements StreakRepositoryPort {
     return streakSchema.parse(data.streak);
   }
 
-  async save(userId: string, streak: Streak): Promise<void> {
+  async save(userId: string, courseId: CourseId, streak: Streak): Promise<void> {
     // upsert (e nao update): update em 0 linhas nao gera erro e o ack da fila
     // descartaria o streak em silencio. As demais colunas tem default.
     const { error } = await this.supabase.from("gamification").upsert(
       {
         user_id: userId,
-        course_id: DEFAULT_COURSE_ID,
+        course_id: courseId,
         streak: streakToJson(streak),
         updated_at: new Date().toISOString(),
       },
@@ -287,21 +292,23 @@ export class SupabaseStreakRepository implements StreakRepositoryPort {
 export class SupabaseTopicMasteryRepository implements TopicMasteryRepositoryPort {
   constructor(private readonly supabase: Supabase) {}
 
-  async list(userId: string): Promise<readonly TopicMastery[]> {
+  async list(userId: string, courseId: CourseId): Promise<readonly TopicMastery[]> {
     const { data, error } = await this.supabase
       .from("topic_mastery")
       .select("topic_id, accuracy, attempts, sessions, last_seen, status")
       .eq("user_id", userId)
-      .eq("course_id", DEFAULT_COURSE_ID);
+      .eq("course_id", courseId);
 
     if (error) fail("list topic_mastery", error);
     return (data ?? []).map(topicMasteryFromRow);
   }
 
-  async upsert(userId: string, mastery: TopicMastery): Promise<void> {
+  async upsert(userId: string, courseId: CourseId, mastery: TopicMastery): Promise<void> {
     const { error } = await this.supabase
       .from("topic_mastery")
-      .upsert(topicMasteryToRow(userId, mastery), { onConflict: "user_id,course_id,topic_id" });
+      .upsert(topicMasteryToRow(userId, courseId, mastery), {
+        onConflict: "user_id,course_id,topic_id",
+      });
 
     if (error) fail("upsert topic_mastery", error);
   }
@@ -311,12 +318,16 @@ export class SupabaseTopicMasteryRepository implements TopicMasteryRepositoryPor
 export class SupabaseErrorLogRepository implements ErrorLogRepositoryPort {
   constructor(private readonly supabase: Supabase) {}
 
-  async listRecent(userId: string, limit: number): Promise<readonly StudentError[]> {
+  async listRecent(
+    userId: string,
+    courseId: CourseId,
+    limit: number,
+  ): Promise<readonly StudentError[]> {
     const { data, error } = await this.supabase
       .from("error_log")
       .select("code, example, count, last_at, skill")
       .eq("user_id", userId)
-      .eq("course_id", DEFAULT_COURSE_ID)
+      .eq("course_id", courseId)
       .order("last_at", { ascending: false })
       .limit(Math.max(0, limit));
 
@@ -324,10 +335,12 @@ export class SupabaseErrorLogRepository implements ErrorLogRepositoryPort {
     return (data ?? []).map(studentErrorFromRow);
   }
 
-  async record(userId: string, studentError: StudentError): Promise<void> {
+  async record(userId: string, courseId: CourseId, studentError: StudentError): Promise<void> {
     const { error } = await this.supabase
       .from("error_log")
-      .upsert(studentErrorToRow(userId, studentError), { onConflict: "user_id,course_id,code" });
+      .upsert(studentErrorToRow(userId, courseId, studentError), {
+        onConflict: "user_id,course_id,code",
+      });
 
     if (error) fail("record error_log", error);
   }

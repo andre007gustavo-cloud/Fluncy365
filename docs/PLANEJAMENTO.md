@@ -559,7 +559,7 @@ export interface SrsScheduler {
 
 // application/generate-daily-session.ts
 export interface GenerateDailySession {
-  execute(uid: string, date: Date): Promise<SessionPlan>;
+  execute(uid: string, courseId: CourseId, date: Date): Promise<SessionPlan>; // CourseId = string (domain)
 }
 
 // domain/ports/voice.port.ts  (I: só fala; não sabe de IA nem de banco — ADR-003)

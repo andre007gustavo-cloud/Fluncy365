@@ -1,4 +1,5 @@
 import type { Streak } from "@/domain/entities/streak";
+import type { CourseId } from "@/domain/value-objects/course-id";
 import type { ClockPort } from "@/domain/ports/clock.port";
 import type {
   SrsCardRepositoryPort,
@@ -33,13 +34,13 @@ export interface GetTodayOverviewDeps {
 export class GetTodayOverview {
   constructor(private readonly deps: GetTodayOverviewDeps) {}
 
-  async execute(userId: string): Promise<TodayOverview> {
+  async execute(userId: string, courseId: CourseId): Promise<TodayOverview> {
     const now = this.deps.clock.now();
 
     const [cards, streak, model] = await Promise.all([
-      this.deps.srsCards.listAll(userId),
-      this.deps.streaks.load(userId),
-      this.deps.studentModels.load(userId),
+      this.deps.srsCards.listAll(userId, courseId),
+      this.deps.streaks.load(userId, courseId),
+      this.deps.studentModels.load(userId, courseId),
     ]);
 
     const { selected, overflow } = selectDueCards(cards, now, DAILY_REVIEW_LIMIT);

@@ -55,8 +55,10 @@ teste de integração a usa para garantir que toda tabela nova nasce com RLS.
 O trigger `handle_new_user` e os repositórios atuais não informam `course_id`. Com o default, tudo
 segue funcionando sem alterar os ports do domínio, o que está fora do escopo da F0.2.
 
-**Dívida:** passar `courseId` pelos ports e casos de uso e remover o default. Fazer na F1.4 ou na E1,
-o que vier primeiro.
+**Dívida (parte do código paga na E1, tarefa 1):** o `courseId` agora passa pelos ports, casos de
+uso e repositórios (Supabase, fakes e Dexie); `ENGLISH_COURSE_ID` só aparece no ponto de entrada.
+Os repositórios locais (offline) recusam, com erro claro, qualquer curso diferente de `'en'`; o
+offline do `vmw` fica para fase futura. **Resta:** remover o `default 'en'` do banco (tarefa 6 da E1).
 
 ### 6. Teste de isolamento
 

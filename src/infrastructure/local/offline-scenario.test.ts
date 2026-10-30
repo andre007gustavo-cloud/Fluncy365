@@ -27,6 +27,7 @@ import { OfflineQueue } from "./offline-queue";
 import { SyncEngine, type SyncReport } from "./sync-engine";
 
 const USER = "u1";
+const COURSE = "en";
 const NOW = new Date("2026-03-10T12:00:00Z");
 
 const LESSON: Lesson = {
@@ -103,9 +104,9 @@ beforeEach(() => {
   localSrs = new DexieSrsCardRepository(db, clock);
   localStreak = new DexieStreakRepository(db, clock);
 
-  remoteSrs = new InMemorySrsCardRepository({ [USER]: [card("c1", 0)] });
+  remoteSrs = new InMemorySrsCardRepository({ [COURSE]: { [USER]: [card("c1", 0)] } });
   remoteStreak = new InMemoryStreakRepository({
-    [USER]: { current: 3, best: 5, shieldsLeft: 2, lastDay: "2026-03-09" },
+    [COURSE]: { [USER]: { current: 3, best: 5, shieldsLeft: 2, lastDay: "2026-03-09" } },
   });
 
   engine = new SyncEngine(
@@ -144,36 +145,36 @@ afterEach(() => db.close());
 describe("cenario modo aviao", () => {
   it("estuda offline e sincroniza ao voltar a conexao", async () => {
     // 1. Primeiro carregamento online
-    const firstSync = await engine.sync(USER);
+    const firstSync = await engine.sync(USER, COURSE);
     expect(firstSync).toMatchObject({ pushed: 0, error: null });
-    expect((await localSrs.listAll(USER)).map((c) => c.id)).toEqual(["c1"]);
-    expect((await localStreak.load(USER)).current).toBe(3);
-    expect(await content.findLesson("u1", 1)).toEqual(LESSON);
+    expect((await localSrs.listAll(USER, COURSE)).map((c) => c.id)).toEqual(["c1"]);
+    expect((await localStreak.load(USER, COURSE)).current).toBe(3);
+    expect(await content.findLesson(COURSE, "u1", 1)).toEqual(LESSON);
 
     // 2. Modo aviao
     airplaneMode = true;
 
     // 3. Estudo offline: duas revisoes do mesmo cartao e o streak
-    await localSrs.upsertMany(USER, [card("c1", 1)]);
-    await localSrs.upsertMany(USER, [card("c1", 6)]);
+    await localSrs.upsertMany(USER, COURSE, [card("c1", 1)]);
+    await localSrs.upsertMany(USER, COURSE, [card("c1", 6)]);
     const studied: Streak = { current: 4, best: 5, shieldsLeft: 2, lastDay: "2026-03-10" };
-    await localStreak.save(USER, studied);
+    await localStreak.save(USER, COURSE, studied);
 
-    expect((await localSrs.listAll(USER))[0]?.intervalDays).toBe(6);
-    expect(await localStreak.load(USER)).toEqual(studied);
-    expect(await content.findLesson("u1", 1)).toEqual(LESSON);
+    expect((await localSrs.listAll(USER, COURSE))[0]?.intervalDays).toBe(6);
+    expect(await localStreak.load(USER, COURSE)).toEqual(studied);
+    expect(await content.findLesson(COURSE, "u1", 1)).toEqual(LESSON);
 
-    const failed = await engine.sync(USER);
+    const failed = await engine.sync(USER, COURSE);
     expect(failed).toEqual({ pushed: 0, pulled: null, error: "modo aviao" });
     const pending = await queue.pending(USER).then((q) => q.operations);
     expect(pending.map((op) => op.operation.kind)).toEqual(["srsCards.upsert", "streak.save"]);
     expect(pending[0]).toMatchObject({ attempts: 1, lastError: "modo aviao" });
-    expect((await remoteSrs.listAll(USER))[0]?.intervalDays).toBe(0);
+    expect((await remoteSrs.listAll(USER, COURSE))[0]?.intervalDays).toBe(0);
 
     // 4. A rede volta e o evento "online" dispara a sincronizacao
     const target = new EventTarget();
     const reports: SyncReport[] = [];
-    const stop = startAutoSync(engine, USER, target, (r) => reports.push(r));
+    const stop = startAutoSync(engine, USER, COURSE, target, (r) => reports.push(r));
     await vi.waitFor(() => expect(reports).toHaveLength(1));
     expect(reports[0]?.error).toBe("modo aviao");
 
@@ -184,8 +185,8 @@ describe("cenario modo aviao", () => {
 
     expect(reports[1]).toMatchObject({ pushed: 2, error: null });
     expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
-    expect((await remoteSrs.listAll(USER))[0]?.intervalDays).toBe(6);
-    expect(await remoteStreak.load(USER)).toEqual(studied);
-    expect((await localSrs.listAll(USER))[0]?.intervalDays).toBe(6);
+    expect((await remoteSrs.listAll(USER, COURSE))[0]?.intervalDays).toBe(6);
+    expect(await remoteStreak.load(USER, COURSE)).toEqual(studied);
+    expect((await localSrs.listAll(USER, COURSE))[0]?.intervalDays).toBe(6);
   });
 });

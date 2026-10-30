@@ -1,8 +1,10 @@
 import type { StudentError } from "@/domain/entities/student";
 import type { ClockPort } from "@/domain/ports/clock.port";
 import type { ErrorLogRepositoryPort } from "@/domain/ports/student-repository.port";
+import type { CourseId } from "@/domain/value-objects/course-id";
 import { isSkill } from "@/domain/value-objects/skill";
 import type { LocalDatabase, LocalErrorLog } from "./local-db";
+import { assertOfflineCourse } from "./offline-course";
 import { OfflineQueue } from "./offline-queue";
 
 /** `record` grava o registro completo do codigo: quem chama ja traz a contagem atualizada. */
@@ -16,7 +18,12 @@ export class DexieErrorLogRepository implements ErrorLogRepositoryPort {
     this.queue = new OfflineQueue(db, clock);
   }
 
-  async listRecent(userId: string, limit: number): Promise<readonly StudentError[]> {
+  async listRecent(
+    userId: string,
+    courseId: CourseId,
+    limit: number,
+  ): Promise<readonly StudentError[]> {
+    assertOfflineCourse(courseId);
     if (limit <= 0) return [];
     const rows = await this.db.errorLog
       .where("[userId+lastAt]")
@@ -27,7 +34,8 @@ export class DexieErrorLogRepository implements ErrorLogRepositoryPort {
     return rows.map(toError);
   }
 
-  async record(userId: string, error: StudentError): Promise<void> {
+  async record(userId: string, courseId: CourseId, error: StudentError): Promise<void> {
+    assertOfflineCourse(courseId);
     await this.db.transaction("rw", this.db.errorLog, this.db.outbox, async () => {
       await this.db.errorLog.put(this.toRow(userId, error));
       await this.queue.enqueue(userId, { kind: "errorLog.record", payload: error });

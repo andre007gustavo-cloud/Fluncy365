@@ -1,3 +1,4 @@
+import type { CourseId } from "@/domain/value-objects/course-id";
 import type {
   ErrorLogRepositoryPort,
   SrsCardRepositoryPort,
@@ -11,6 +12,7 @@ import type { DexieSrsCardRepository } from "./dexie-srs-card-repository";
 import type { DexieStreakRepository } from "./dexie-streak-repository";
 import type { DexieStudentModelRepository } from "./dexie-student-model-repository";
 import type { DexieTopicMasteryRepository } from "./dexie-topic-mastery-repository";
+import { assertOfflineCourse } from "./offline-course";
 import {
   pendingKey,
   type OfflineQueue,
@@ -78,7 +80,7 @@ export class SyncEngine {
    * esta inacessivel e a ordem das edicoes pendentes importa mais. Mesmo assim o pull
    * nunca sobrescreve entidades com operacao pendente.
    */
-  sync(userId: string): Promise<SyncReport> {
+  sync(userId: string, courseId: CourseId): Promise<SyncReport> {
     const current = this.running.get(userId);
     if (current) {
       current.rerun = true;
@@ -86,19 +88,23 @@ export class SyncEngine {
     }
 
     const execution: Execution = { rerun: false, promise: Promise.resolve(EMPTY_REPORT) };
-    execution.promise = this.syncUntilSettled(userId, execution).finally(() =>
+    execution.promise = this.syncUntilSettled(userId, courseId, execution).finally(() =>
       this.running.delete(userId),
     );
     this.running.set(userId, execution);
     return execution.promise;
   }
 
-  private async syncUntilSettled(userId: string, execution: Execution): Promise<SyncReport> {
+  private async syncUntilSettled(
+    userId: string,
+    courseId: CourseId,
+    execution: Execution,
+  ): Promise<SyncReport> {
     let report: SyncReport;
     let pushedBefore = 0;
     do {
       execution.rerun = false;
-      report = await this.runSync(userId);
+      report = await this.runSync(userId, courseId);
       report = { ...report, pushed: report.pushed + pushedBefore };
       pushedBefore = report.pushed;
     } while (execution.rerun);
@@ -109,7 +115,7 @@ export class SyncEngine {
    * Envia em ordem e para na primeira falha, preservando a ordem das edicoes.
    * Linhas invalidas da fila nao sao enviadas nem apagadas: voltam em `invalid`.
    */
-  async push(userId: string): Promise<PushResult> {
+  async push(userId: string, courseId: CourseId): Promise<PushResult> {
     let pending: PendingQueue;
     try {
       pending = await this.queue.pending(userId);
@@ -122,7 +128,7 @@ export class SyncEngine {
     let pushed = 0;
     for (const queued of operations) {
       try {
-        await this.dispatch(userId, queued.operation);
+        await this.dispatch(userId, courseId, queued.operation);
       } catch (error) {
         const message = messageOf(error);
         await this.queue.markFailed(queued.id, message);
@@ -139,12 +145,12 @@ export class SyncEngine {
    * confere a fila e grava: assim nenhuma edicao do aluno cai entre a checagem
    * de pendencias e a gravacao, e o pull e atomico.
    */
-  async pull(userId: string): Promise<number> {
-    const cards = await this.remote.srsCards.listAll(userId);
-    const masteries = await this.remote.topicMastery.list(userId);
-    const errors = await this.remote.errorLog.listRecent(userId, ERROR_LOG_PULL_LIMIT);
-    const model = await this.remote.studentModel.load(userId);
-    const streak = await this.remote.streak.load(userId);
+  async pull(userId: string, courseId: CourseId): Promise<number> {
+    const cards = await this.remote.srsCards.listAll(userId, courseId);
+    const masteries = await this.remote.topicMastery.list(userId, courseId);
+    const errors = await this.remote.errorLog.listRecent(userId, courseId, ERROR_LOG_PULL_LIMIT);
+    const model = await this.remote.studentModel.load(userId, courseId);
+    const streak = await this.remote.streak.load(userId, courseId);
 
     const { db } = this;
     const tables = [
@@ -180,13 +186,14 @@ export class SyncEngine {
     });
   }
 
-  private async runSync(userId: string): Promise<SyncReport> {
-    const { pushed, error, invalid } = await this.push(userId);
+  private async runSync(userId: string, courseId: CourseId): Promise<SyncReport> {
+    assertOfflineCourse(courseId);
+    const { pushed, error, invalid } = await this.push(userId, courseId);
     if (error !== null) return { pushed, pulled: null, error: [error, ...invalid].join(" | ") };
 
     const invalidError = invalid.length > 0 ? invalid.join(" | ") : null;
     try {
-      return { pushed, pulled: await this.pull(userId), error: invalidError };
+      return { pushed, pulled: await this.pull(userId, courseId), error: invalidError };
     } catch (pullError) {
       return {
         pushed,
@@ -196,18 +203,22 @@ export class SyncEngine {
     }
   }
 
-  private async dispatch(userId: string, operation: SyncOperation): Promise<void> {
+  private async dispatch(
+    userId: string,
+    courseId: CourseId,
+    operation: SyncOperation,
+  ): Promise<void> {
     switch (operation.kind) {
       case "srsCards.upsert":
-        return this.remote.srsCards.upsertMany(userId, [operation.payload]);
+        return this.remote.srsCards.upsertMany(userId, courseId, [operation.payload]);
       case "studentModel.save":
-        return this.remote.studentModel.save(operation.payload);
+        return this.remote.studentModel.save(operation.payload, courseId);
       case "streak.save":
-        return this.remote.streak.save(userId, operation.payload);
+        return this.remote.streak.save(userId, courseId, operation.payload);
       case "topicMastery.upsert":
-        return this.remote.topicMastery.upsert(userId, operation.payload);
+        return this.remote.topicMastery.upsert(userId, courseId, operation.payload);
       case "errorLog.record":
-        return this.remote.errorLog.record(userId, operation.payload);
+        return this.remote.errorLog.record(userId, courseId, operation.payload);
     }
   }
 }

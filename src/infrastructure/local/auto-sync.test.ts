@@ -15,17 +15,17 @@ describe("startAutoSync", () => {
     const { engine, target, sync } = setup();
     const onReport = vi.fn();
 
-    startAutoSync(engine, "u1", target, onReport);
+    startAutoSync(engine, "u1", "en", target, onReport);
     await flush();
 
     expect(sync).toHaveBeenCalledTimes(1);
-    expect(sync).toHaveBeenCalledWith("u1");
+    expect(sync).toHaveBeenCalledWith("u1", "en");
     expect(onReport).toHaveBeenCalledWith(REPORT);
   });
 
   it("cada evento online dispara um sync", async () => {
     const { engine, target, sync } = setup();
-    startAutoSync(engine, "u1", target);
+    startAutoSync(engine, "u1", "en", target);
 
     target.dispatchEvent(new Event("online"));
     await flush();
@@ -35,7 +35,7 @@ describe("startAutoSync", () => {
 
   it("depois de cancelar, o evento online nao dispara mais sync", async () => {
     const { engine, target, sync } = setup();
-    const stop = startAutoSync(engine, "u1", target);
+    const stop = startAutoSync(engine, "u1", "en", target);
 
     stop();
     target.dispatchEvent(new Event("online"));
@@ -49,7 +49,7 @@ describe("startAutoSync", () => {
     const { engine, target } = setup(vi.fn().mockRejectedValue(failure));
     const onError = vi.fn();
 
-    startAutoSync(engine, "u1", target, undefined, onError);
+    startAutoSync(engine, "u1", "en", target, undefined, onError);
     await flush();
 
     expect(onError).toHaveBeenCalledWith(failure);
@@ -59,7 +59,7 @@ describe("startAutoSync", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { engine, target } = setup(vi.fn().mockRejectedValue(new Error("boom")));
 
-    startAutoSync(engine, "u1", target);
+    startAutoSync(engine, "u1", "en", target);
     await flush();
 
     expect(consoleError).toHaveBeenCalledOnce();

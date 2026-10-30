@@ -26,13 +26,13 @@ afterEach(() => {
 
 describe("DexieStreakRepository", () => {
   it("devolve o streak vazio quando nao ha registro", async () => {
-    expect(await repo.load("u1")).toEqual(EMPTY_STREAK);
+    expect(await repo.load("u1", "en")).toEqual(EMPTY_STREAK);
   });
 
   it("salva, le de volta e enfileira a operacao", async () => {
-    await repo.save("u1", STREAK);
+    await repo.save("u1", "en", STREAK);
 
-    expect(await repo.load("u1")).toEqual(STREAK);
+    expect(await repo.load("u1", "en")).toEqual(STREAK);
     const pending = await new OfflineQueue(db, new FixedClock(NOW))
       .pending("u1")
       .then((q) => q.operations);
@@ -42,23 +42,23 @@ describe("DexieStreakRepository", () => {
   });
 
   it("isola por usuario", async () => {
-    await repo.save("u1", STREAK);
+    await repo.save("u1", "en", STREAK);
 
-    expect(await repo.load("u2")).toEqual(EMPTY_STREAK);
+    expect(await repo.load("u2", "en")).toEqual(EMPTY_STREAK);
   });
 
   it("desfaz a gravacao local quando o enqueue falha", async () => {
     vi.spyOn(OfflineQueue.prototype, "enqueue").mockRejectedValueOnce(new Error("falha"));
 
-    await expect(repo.save("u1", STREAK)).rejects.toThrow("falha");
+    await expect(repo.save("u1", "en", STREAK)).rejects.toThrow("falha");
 
-    expect(await repo.load("u1")).toEqual(EMPTY_STREAK);
+    expect(await repo.load("u1", "en")).toEqual(EMPTY_STREAK);
   });
 
   it("applyRemote grava sem enfileirar", async () => {
     await repo.applyRemote("u1", STREAK);
 
-    expect(await repo.load("u1")).toEqual(STREAK);
+    expect(await repo.load("u1", "en")).toEqual(STREAK);
     expect(await db.outbox.count()).toBe(0);
   });
 });

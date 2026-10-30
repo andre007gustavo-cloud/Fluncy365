@@ -29,10 +29,10 @@ afterEach(() => {
 
 describe("DexieTopicMasteryRepository", () => {
   it("grava, lista com Date e enfileira a operacao", async () => {
-    await repo.upsert("u1", mastery("a"));
-    await repo.upsert("u1", { ...mastery("b"), lastSeen: null });
+    await repo.upsert("u1", "en", mastery("a"));
+    await repo.upsert("u1", "en", { ...mastery("b"), lastSeen: null });
 
-    const list = await repo.list("u1");
+    const list = await repo.list("u1", "en");
     expect(list).toHaveLength(2);
     expect(list.find((m) => m.topicId === "a")).toEqual(mastery("a"));
     expect(list.find((m) => m.topicId === "b")?.lastSeen).toBeNull();
@@ -46,10 +46,10 @@ describe("DexieTopicMasteryRepository", () => {
   });
 
   it("atualiza o mesmo topico e coalesce a fila", async () => {
-    await repo.upsert("u1", mastery("a", 0.5));
-    await repo.upsert("u1", mastery("a", 0.9));
+    await repo.upsert("u1", "en", mastery("a", 0.5));
+    await repo.upsert("u1", "en", mastery("a", 0.9));
 
-    expect((await repo.list("u1")).map((m) => m.accuracy)).toEqual([0.9]);
+    expect((await repo.list("u1", "en")).map((m) => m.accuracy)).toEqual([0.9]);
     const pending = await new OfflineQueue(db, new FixedClock(NOW))
       .pending("u1")
       .then((q) => q.operations);
@@ -58,25 +58,25 @@ describe("DexieTopicMasteryRepository", () => {
   });
 
   it("isola por usuario", async () => {
-    await repo.upsert("u1", mastery("a"));
-    await repo.upsert("u2", mastery("a", 0.1));
+    await repo.upsert("u1", "en", mastery("a"));
+    await repo.upsert("u2", "en", mastery("a", 0.1));
 
-    expect((await repo.list("u1"))[0]?.accuracy).toBe(0.5);
-    expect(await repo.list("u3")).toEqual([]);
+    expect((await repo.list("u1", "en"))[0]?.accuracy).toBe(0.5);
+    expect(await repo.list("u3", "en")).toEqual([]);
   });
 
   it("desfaz a gravacao local quando o enqueue falha", async () => {
     vi.spyOn(OfflineQueue.prototype, "enqueue").mockRejectedValueOnce(new Error("falha"));
 
-    await expect(repo.upsert("u1", mastery("a"))).rejects.toThrow("falha");
+    await expect(repo.upsert("u1", "en", mastery("a"))).rejects.toThrow("falha");
 
-    expect(await repo.list("u1")).toEqual([]);
+    expect(await repo.list("u1", "en")).toEqual([]);
   });
 
   it("applyRemote grava sem enfileirar", async () => {
     await repo.applyRemote("u1", [mastery("a"), mastery("b")]);
 
-    expect(await repo.list("u1")).toHaveLength(2);
+    expect(await repo.list("u1", "en")).toHaveLength(2);
     expect(await db.outbox.count()).toBe(0);
   });
 });

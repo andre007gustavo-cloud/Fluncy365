@@ -1,7 +1,9 @@
 import { createStreak, type Streak } from "@/domain/entities/streak";
+import type { CourseId } from "@/domain/value-objects/course-id";
 import type { ClockPort } from "@/domain/ports/clock.port";
 import type { StreakRepositoryPort } from "@/domain/ports/student-repository.port";
 import type { LocalDatabase, LocalStreak } from "./local-db";
+import { assertOfflineCourse } from "./offline-course";
 import { OfflineQueue } from "./offline-queue";
 
 export class DexieStreakRepository implements StreakRepositoryPort {
@@ -14,12 +16,14 @@ export class DexieStreakRepository implements StreakRepositoryPort {
     this.queue = new OfflineQueue(db, clock);
   }
 
-  async load(userId: string): Promise<Streak> {
+  async load(userId: string, courseId: CourseId): Promise<Streak> {
+    assertOfflineCourse(courseId);
     const row = await this.db.streaks.get(userId);
     return row ? toStreak(row) : createStreak();
   }
 
-  async save(userId: string, streak: Streak): Promise<void> {
+  async save(userId: string, courseId: CourseId, streak: Streak): Promise<void> {
+    assertOfflineCourse(courseId);
     await this.db.transaction("rw", this.db.streaks, this.db.outbox, async () => {
       await this.db.streaks.put(this.toRow(userId, streak));
       await this.queue.enqueue(userId, { kind: "streak.save", payload: streak });
