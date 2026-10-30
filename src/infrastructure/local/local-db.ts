@@ -1,8 +1,10 @@
-import Dexie, { type EntityTable } from "dexie";
+import Dexie, { type DexieOptions, type EntityTable, type Table } from "dexie";
+import type { CefrLevel } from "@/domain/value-objects/cefr-level";
+import type { Skill } from "@/domain/value-objects/skill";
 
 /**
- * Base local (IndexedDB). Na Fase 0 ela apenas existe e versiona o schema;
- * o SyncEngine que a torna fonte de verdade offline entra na Fase 1.
+ * Base local (IndexedDB), fonte de verdade offline. As escritas de dominio
+ * enfileiram uma operacao na `outbox`, que o SyncEngine envia ao Supabase.
  */
 export interface LocalSrsCard {
   id: string;
@@ -15,26 +17,108 @@ export interface LocalSrsCard {
   dueAt: number;
   lapses: number;
   sourceLessonId: string | null;
-  dirty: 0 | 1;
+  /** Epoch ms da ultima escrita local (via ClockPort). */
+  updatedAt: number;
+}
+
+export interface LocalStudentModel {
+  userId: string;
+  levels: Record<Skill, CefrLevel>;
+  vocabSize: number;
+  pace: {
+    avgSecondsPerExercise: number;
+    sessionCompletionRate: number;
+    usualHour: number | null;
+  };
+  updatedAt: number;
+}
+
+export interface LocalStreak {
+  userId: string;
+  current: number;
+  best: number;
+  shieldsLeft: number;
+  lastDay: string | null;
+  updatedAt: number;
+}
+
+export interface LocalTopicMastery {
+  userId: string;
+  topicId: string;
+  accuracy: number;
+  attempts: number;
+  sessions: number;
+  lastSeen: number | null;
+  status: "locked" | "learning" | "review" | "mastered";
+  updatedAt: number;
+}
+
+export interface LocalErrorLog {
+  userId: string;
+  code: string;
+  example: string;
+  count: number;
+  lastAt: number;
+  skill: string;
+  updatedAt: number;
+}
+
+/** Copia de lição/unidade para uso offline; `data` guarda o JSON ja validado. */
+export interface LocalLesson {
+  id: string;
+  unitId: string;
+  dayIndex: number;
+  data: unknown;
+  updatedAt: number;
+}
+
+export interface LocalUnit {
+  id: string;
+  data: unknown;
+  updatedAt: number;
 }
 
 export interface PendingOperation {
   id?: number;
   userId: string;
   kind: string;
+  /** Identifica a entidade alterada; uma nova operacao substitui a pendente da mesma chave. */
+  entityKey: string;
   payload: unknown;
   createdAt: number;
+  updatedAt: number;
+  attempts: number;
+  lastError: string | null;
+  /** Incrementada a cada coalescencia; permite ao ack nao apagar uma edicao feita durante o envio. */
+  /** Ausente em linhas gravadas antes do campo existir; leia como 0. */
+  revision?: number;
 }
 
 export class LocalDatabase extends Dexie {
   srsCards!: EntityTable<LocalSrsCard, "id">;
+  studentModels!: EntityTable<LocalStudentModel, "userId">;
+  streaks!: EntityTable<LocalStreak, "userId">;
+  topicMastery!: Table<LocalTopicMastery, [string, string]>;
+  errorLog!: Table<LocalErrorLog, [string, string]>;
+  lessons!: EntityTable<LocalLesson, "id">;
+  units!: EntityTable<LocalUnit, "id">;
   outbox!: EntityTable<PendingOperation, "id">;
 
-  constructor() {
-    super("fluente365");
+  constructor(name = "fluente365", options?: DexieOptions) {
+    super(name, options);
     this.version(1).stores({
       srsCards: "id, userId, dueAt, dirty, [userId+dueAt]",
       outbox: "++id, userId, createdAt",
+    });
+    this.version(2).stores({
+      srsCards: "id, userId, dueAt, [userId+dueAt]",
+      studentModels: "userId",
+      streaks: "userId",
+      topicMastery: "[userId+topicId], userId",
+      errorLog: "[userId+code], userId, [userId+lastAt]",
+      lessons: "id, [unitId+dayIndex]",
+      units: "id",
+      outbox: "++id, userId, createdAt, [userId+kind+entityKey]",
     });
   }
 }

@@ -1,12 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { SrsCard } from "@/domain/entities/srs-card";
-import type { StudentModel } from "@/domain/entities/student";
+import type { StudentError, StudentModel, TopicMastery } from "@/domain/entities/student";
 import { MONTHLY_SHIELDS, type Streak } from "@/domain/entities/streak";
+import { SKILLS } from "@/domain/value-objects/skill";
 import type {
+  ErrorLogRepositoryPort,
   SrsCardRepositoryPort,
   StreakRepositoryPort,
   StudentModelRepositoryPort,
+  TopicMasteryRepositoryPort,
 } from "@/domain/ports/student-repository.port";
 import { DEFAULT_COURSE_ID } from "./course";
 import type { Database, Json } from "./database.types";
@@ -51,6 +54,71 @@ const streakSchema = z.object({
   shieldsLeft: z.number().int(),
   lastDay: z.string().nullable(),
 });
+
+const topicMasteryRowSchema = z.object({
+  topic_id: z.string(),
+  accuracy: z.number(),
+  attempts: z.number().int(),
+  sessions: z.number().int(),
+  last_seen: z.string().nullable(),
+  status: z.enum(["locked", "learning", "review", "mastered"]),
+});
+
+const errorLogRowSchema = z.object({
+  code: z.string(),
+  example: z.string(),
+  count: z.number().int(),
+  last_at: z.string(),
+  skill: z.enum(SKILLS),
+});
+
+export function topicMasteryFromRow(row: unknown): TopicMastery {
+  const parsed = topicMasteryRowSchema.parse(row);
+  return {
+    topicId: parsed.topic_id,
+    accuracy: parsed.accuracy,
+    attempts: parsed.attempts,
+    sessions: parsed.sessions,
+    lastSeen: parsed.last_seen === null ? null : new Date(parsed.last_seen),
+    status: parsed.status,
+  };
+}
+
+export function topicMasteryToRow(userId: string, mastery: TopicMastery) {
+  return {
+    user_id: userId,
+    course_id: DEFAULT_COURSE_ID,
+    topic_id: mastery.topicId,
+    accuracy: mastery.accuracy,
+    attempts: mastery.attempts,
+    sessions: mastery.sessions,
+    last_seen: mastery.lastSeen?.toISOString() ?? null,
+    status: mastery.status,
+  };
+}
+
+export function studentErrorFromRow(row: unknown): StudentError {
+  const parsed = errorLogRowSchema.parse(row);
+  return {
+    code: parsed.code,
+    example: parsed.example,
+    count: parsed.count,
+    lastAt: new Date(parsed.last_at),
+    skill: parsed.skill,
+  };
+}
+
+export function studentErrorToRow(userId: string, error: StudentError) {
+  return {
+    user_id: userId,
+    course_id: DEFAULT_COURSE_ID,
+    code: error.code,
+    example: error.example,
+    count: error.count,
+    last_at: error.lastAt.toISOString(),
+    skill: error.skill,
+  };
+}
 
 function toSrsCard(row: z.infer<typeof srsCardRowSchema>): SrsCard {
   return {
@@ -200,12 +268,67 @@ export class SupabaseStreakRepository implements StreakRepositoryPort {
   }
 
   async save(userId: string, streak: Streak): Promise<void> {
-    const { error } = await this.supabase
-      .from("gamification")
-      .update({ streak: streakToJson(streak), updated_at: new Date().toISOString() })
+    // upsert (e nao update): update em 0 linhas nao gera erro e o ack da fila
+    // descartaria o streak em silencio. As demais colunas tem default.
+    const { error } = await this.supabase.from("gamification").upsert(
+      {
+        user_id: userId,
+        course_id: DEFAULT_COURSE_ID,
+        streak: streakToJson(streak),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,course_id" },
+    );
+
+    if (error) fail("save gamification", error);
+  }
+}
+
+export class SupabaseTopicMasteryRepository implements TopicMasteryRepositoryPort {
+  constructor(private readonly supabase: Supabase) {}
+
+  async list(userId: string): Promise<readonly TopicMastery[]> {
+    const { data, error } = await this.supabase
+      .from("topic_mastery")
+      .select("topic_id, accuracy, attempts, sessions, last_seen, status")
       .eq("user_id", userId)
       .eq("course_id", DEFAULT_COURSE_ID);
 
-    if (error) fail("save gamification", error);
+    if (error) fail("list topic_mastery", error);
+    return (data ?? []).map(topicMasteryFromRow);
+  }
+
+  async upsert(userId: string, mastery: TopicMastery): Promise<void> {
+    const { error } = await this.supabase
+      .from("topic_mastery")
+      .upsert(topicMasteryToRow(userId, mastery), { onConflict: "user_id,course_id,topic_id" });
+
+    if (error) fail("upsert topic_mastery", error);
+  }
+}
+
+/** `record` grava o registro completo do codigo: quem chama ja traz a contagem atualizada. */
+export class SupabaseErrorLogRepository implements ErrorLogRepositoryPort {
+  constructor(private readonly supabase: Supabase) {}
+
+  async listRecent(userId: string, limit: number): Promise<readonly StudentError[]> {
+    const { data, error } = await this.supabase
+      .from("error_log")
+      .select("code, example, count, last_at, skill")
+      .eq("user_id", userId)
+      .eq("course_id", DEFAULT_COURSE_ID)
+      .order("last_at", { ascending: false })
+      .limit(Math.max(0, limit));
+
+    if (error) fail("listRecent error_log", error);
+    return (data ?? []).map(studentErrorFromRow);
+  }
+
+  async record(userId: string, studentError: StudentError): Promise<void> {
+    const { error } = await this.supabase
+      .from("error_log")
+      .upsert(studentErrorToRow(userId, studentError), { onConflict: "user_id,course_id,code" });
+
+    if (error) fail("record error_log", error);
   }
 }
