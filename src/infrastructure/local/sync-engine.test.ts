@@ -64,6 +64,7 @@ let remote: RemoteRepositories;
 let remoteSrs: InMemorySrsCardRepository;
 let remoteDown: boolean;
 let upsertCalls: number;
+let duringRemoteRead: (() => Promise<void>) | null;
 let localSrs: DexieSrsCardRepository;
 let queue: OfflineQueue;
 let engine: SyncEngine;
@@ -72,6 +73,7 @@ beforeEach(() => {
   counter += 1;
   remoteDown = false;
   upsertCalls = 0;
+  duringRemoteRead = null;
   const clock = new FixedClock(NOW);
   db = new LocalDatabase(`sync-${counter}`, { indexedDB: new IDBFactory(), IDBKeyRange });
   queue = new OfflineQueue(db, clock);
@@ -80,7 +82,11 @@ beforeEach(() => {
 
   remote = {
     srsCards: {
-      listAll: (userId) => remoteSrs.listAll(userId),
+      listAll: async (userId) => {
+        const snapshot = await remoteSrs.listAll(userId);
+        await duringRemoteRead?.();
+        return snapshot;
+      },
       listDue: (userId, now, limit) => remoteSrs.listDue(userId, now, limit),
       upsertMany: async (userId, cards) => {
         upsertCalls += 1;
@@ -93,7 +99,7 @@ beforeEach(() => {
     topicMastery: new InMemoryTopicMastery(),
     errorLog: new InMemoryErrorLog(),
   };
-  engine = new SyncEngine(queue, remote, {
+  engine = new SyncEngine(db, queue, remote, {
     srsCards: localSrs,
     studentModel: new DexieStudentModelRepository(db, clock),
     streak: new DexieStreakRepository(db, clock),
@@ -205,5 +211,19 @@ describe("SyncEngine", () => {
 
     expect(report).toEqual({ pushed: 0, error: "sem rede" });
     expect(await queue.pending(USER)).toHaveLength(2);
+  });
+});
+
+describe("SyncEngine - corrida entre leitura remota e gravacao local", () => {
+  it("edicao local feita depois da leitura do servidor sobrevive ao pull", async () => {
+    await remoteSrs.upsertMany(USER, [card("a", "servidor"), card("b", "servidor")]);
+    duringRemoteRead = () => localSrs.upsertMany(USER, [card("a", "local")]);
+
+    await engine.pull(USER);
+
+    const byId = new Map((await localSrs.listAll(USER)).map((c) => [c.id, c.front]));
+    expect(byId.get("a")).toBe("local");
+    expect(byId.get("b")).toBe("servidor");
+    expect(await queue.pending(USER)).toHaveLength(1);
   });
 });

@@ -5,6 +5,7 @@ import type {
   StudentModelRepositoryPort,
   TopicMasteryRepositoryPort,
 } from "@/domain/ports/student-repository.port";
+import type { LocalDatabase } from "./local-db";
 import type { DexieErrorLogRepository } from "./dexie-error-log-repository";
 import type { DexieSrsCardRepository } from "./dexie-srs-card-repository";
 import type { DexieStreakRepository } from "./dexie-streak-repository";
@@ -49,6 +50,7 @@ export class SyncEngine {
   private readonly running = new Map<string, Promise<SyncReport>>();
 
   constructor(
+    private readonly db: LocalDatabase,
     private readonly queue: OfflineQueue,
     private readonly remote: RemoteRepositories,
     private readonly local: LocalRepositories,
@@ -93,38 +95,50 @@ export class SyncEngine {
     return { pushed, error: null };
   }
 
-  /** Aplica o estado do servidor, exceto entidades com edicao local pendente. */
+  /**
+   * Le tudo do servidor primeiro (rede) e so depois abre UMA transacao local que
+   * confere a fila e grava: assim nenhuma edicao do aluno cai entre a checagem
+   * de pendencias e a gravacao, e o pull e atomico.
+   */
   async pull(userId: string): Promise<number> {
-    const pending = await this.queue.pendingKeys(userId);
-    const isFree = (kind: SyncOperation["kind"], entityKey: string) =>
-      !pending.has(pendingKey(kind, entityKey));
-
-    const cards = (await this.remote.srsCards.listAll(userId)).filter((c) =>
-      isFree("srsCards.upsert", c.id),
-    );
-    const masteries = (await this.remote.topicMastery.list(userId)).filter((m) =>
-      isFree("topicMastery.upsert", m.topicId),
-    );
-    const errors = (await this.remote.errorLog.listRecent(userId, ERROR_LOG_PULL_LIMIT)).filter(
-      (e) => isFree("errorLog.record", e.code),
-    );
+    const cards = await this.remote.srsCards.listAll(userId);
+    const masteries = await this.remote.topicMastery.list(userId);
+    const errors = await this.remote.errorLog.listRecent(userId, ERROR_LOG_PULL_LIMIT);
     const model = await this.remote.studentModel.load(userId);
     const streak = await this.remote.streak.load(userId);
 
-    await this.local.srsCards.applyRemote(userId, cards);
-    await this.local.topicMastery.applyRemote(userId, masteries);
-    await this.local.errorLog.applyRemote(userId, errors);
+    const { db } = this;
+    const tables = [
+      db.srsCards,
+      db.topicMastery,
+      db.errorLog,
+      db.studentModels,
+      db.streaks,
+      db.outbox,
+    ];
+    return db.transaction("rw", tables, async () => {
+      const pending = await this.queue.pendingKeys(userId);
+      const isFree = (kind: SyncOperation["kind"], entityKey: string) =>
+        !pending.has(pendingKey(kind, entityKey));
 
-    let applied = cards.length + masteries.length + errors.length;
-    if (model && isFree("studentModel.save", "self")) {
-      await this.local.studentModel.applyRemote(model);
-      applied += 1;
-    }
-    if (streak.lastDay !== null && isFree("streak.save", "self")) {
-      await this.local.streak.applyRemote(userId, streak);
-      applied += 1;
-    }
-    return applied;
+      const freeCards = cards.filter((c) => isFree("srsCards.upsert", c.id));
+      const freeMasteries = masteries.filter((m) => isFree("topicMastery.upsert", m.topicId));
+      const freeErrors = errors.filter((e) => isFree("errorLog.record", e.code));
+      await this.local.srsCards.applyRemote(userId, freeCards);
+      await this.local.topicMastery.applyRemote(userId, freeMasteries);
+      await this.local.errorLog.applyRemote(userId, freeErrors);
+
+      let applied = freeCards.length + freeMasteries.length + freeErrors.length;
+      if (model && isFree("studentModel.save", "self")) {
+        await this.local.studentModel.applyRemote(model);
+        applied += 1;
+      }
+      if (streak.lastDay !== null && isFree("streak.save", "self")) {
+        await this.local.streak.applyRemote(userId, streak);
+        applied += 1;
+      }
+      return applied;
+    });
   }
 
   private async runSync(userId: string): Promise<SyncReport> {
