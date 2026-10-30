@@ -1,4 +1,6 @@
 import Dexie, { type DexieOptions, type EntityTable } from "dexie";
+import type { CefrLevel } from "@/domain/value-objects/cefr-level";
+import type { Skill } from "@/domain/value-objects/skill";
 
 /**
  * Base local (IndexedDB), fonte de verdade offline. As escritas de dominio
@@ -21,7 +23,7 @@ export interface LocalSrsCard {
 
 export interface LocalStudentModel {
   userId: string;
-  levels: Record<string, string>;
+  levels: Record<Skill, CefrLevel>;
   vocabSize: number;
   pace: {
     avgSecondsPerExercise: number;
