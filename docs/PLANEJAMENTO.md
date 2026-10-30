@@ -604,6 +604,9 @@ export type MouthShape = "rest" | "A" | "E" | "O" | "U" | "MBP" | "FV"; // 6 for
 
 - **Prompt caching:** no Opus 5.5, a leitura de cache custa US$ 0,20 por milhão de tokens.
 - **Batch API:** metade do preço — usar na pré-geração de lições e nos lotes do laboratório emakhuwa.
+
+> Alterado pelo [ADR-006](./ADR-006-laboratorio-com-assinatura.md): na fase pessoal o laboratório usa a assinatura, sem custo de API; Batch API e custo por lote valem para o worker (versão para convidados).
+
 - Fonte consultada: tabela de preços da API Claude, out/2026 (https://claudecoworkcourse.com/ai-api-pricing/claude). Conferir em https://docs.claude.com antes de configurar.
 
 ### 14.2 Modelo por serviço (configuração, não código)
@@ -626,6 +629,8 @@ O proxy lê o modelo de cada serviço de um mapa de configuração no servidor (
 - **Inglês, voz (ADR-003):** cerca de US$ 1,05 a 1,40 por aluno/mês com a Fish Audio; US$ 2,80 a 3,15 com o ElevenLabs Flash.
 - **Família de 15 alunos:** cerca de US$ 45 a 80 por mês com a Fish Audio.
 - **Módulo emakhuwa (uso pessoal):** cerca de US$ 20 a 50 por mês de texto, US$ 1 a 3 por lote do laboratório e US$ 1 a 5 de voz.
+
+> Alterado pelo [ADR-006](./ADR-006-laboratorio-com-assinatura.md): na fase pessoal o laboratório usa a assinatura, sem custo de API; Batch API e custo por lote valem para o worker (versão para convidados).
 
 ### 14.4 Custos de voz (ADR-003)
 

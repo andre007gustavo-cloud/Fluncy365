@@ -12,7 +12,7 @@
 > **O que mudou em relação à v0.1:**
 >
 > - **Escopo:** de "só leitura" para as quatro habilidades, incluindo conversa do dia a dia.
-> - **Corpus:** no Supabase, visível só para o André, com cópia offline no Dexie.
+> - **Corpus:** no Supabase, na biblioteca do curso (padrão de conteúdo), visível ao André na fase pessoal e a convidados só nos itens autorizados, com cópia offline no Dexie.
 > - **Coleta:** importação de arquivos baixados (EPUB, MP3, MP4), no lugar de um coletor que busca páginas do site.
 > - **Agente professor:** com ferramentas e um plano de treino em lotes.
 > - **Laboratório local:** monta a base de conhecimento do agente.
@@ -29,7 +29,7 @@
 
 1. Resumo
 2. O desafio do emakhuwa
-3. Regras do jogo: termos de uso do jw.org
+3. Regras do jogo: autorização do jw.org
 4. Fundamentos pedagógicos
 5. Pipeline do corpus paralelo
 6. O agente professor e os papéis da IA
@@ -468,7 +468,7 @@ O módulo entra como um segundo curso do Fluente365: reaproveita SRS, Session Pl
 O ADR-002 já criou a tabela `courses` (flags `ai_level`, `audio`, `visibility`) e o `course_id` em todas as tabelas de aluno e de conteúdo. Para o emakhuwa:
 
 1. `courses.audio` passa a aceitar também `'downloaded'` (áudio oficial baixado e cortado, mais a voz do tutor).
-2. É semeado o curso `vmw`: nome "Emakhuwa", `ai_level = 'corpus_only'`, `audio = 'downloaded'`, `visibility = 'owner_only'`.
+2. É semeado o curso `vmw`: nome "Emakhuwa", `ai_level = 'corpus_only'`, `audio = 'downloaded'`, `visibility = 'owner_only'` (passa a `shared` a partir da A4, ADR-005).
 3. Paga-se a dívida do ADR-002: `courseId` passa pelos ports e casos de uso, e o default `'en'` sai antes de ativar o curso `vmw` para o usuário.
 4. O planner lê as flags do curso: com `corpus_only`, só usa frases do corpus e o `CorpusGuard`; com `downloaded`, agenda ditado e shadowing com o áudio oficial.
 5. O `SpeechPort` verifica capacidade. A Web Speech API do navegador não fala nem reconhece emakhuwa; a voz vem do áudio oficial, do falante ou da voz sintética aprovada (seção 6.7), e o reconhecimento só entra se o teste da E3 aprovar.
@@ -476,7 +476,7 @@ O ADR-002 já criou a tabela `courses` (flags `ai_level`, `audio`, `visibility`)
 
 ### 12.5 Dados
 
-Todas as tabelas novas têm `user_id`, `course_id`, RLS por `user_id` e exigem curso visível (policies do ADR-002). A migration real é da fase E1; o resumo abaixo é a referência.
+Corpus, léxico e mídia do acervo seguem o padrão de conteúdo (`content_*`, escrita só pela `service_role`, leitura por quem tem acesso ao curso, ADR-005). `user_id` e RLS por usuário ficam nas tabelas do progresso do aluno; todas têm `course_id` e exigem curso visível (policies do ADR-002). A migration real é da fase E1; o resumo abaixo é a referência.
 
 | Tabela                | Conteúdo principal                                                                                                                                          |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -616,7 +616,7 @@ Decisão do André: seguir, ajustar os prompts ou reduzir o papel da IA (nesse c
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | IA errar emakhuwa com confiança                | Status decidido por código, botão de contestar, gabarito sempre oficial, prova fixa por lote, falante no ciclo                 |
 | IA inventar frases em emakhuwa                 | `CorpusGuard` rejeita qualquer frase fora do corpus                                                                            |
-| Uso do conteúdo fora dos termos                | Arquivos baixados pelo próprio André, corpus só na conta dele, sem raspagem, curso `owner_only`                                |
+| Uso do conteúdo fora dos termos                | Só arquivos públicos, retirada em 7 dias se pedido, convidados controlados, abrir só o autorizado em `docs/autorizacao-jw.md`  |
 | Mistura de variantes                           | Só emakhuwa central; o importador recusa arquivos de outra variante                                                            |
 | Tradução não literal confunde o alinhamento    | Alinhamento por frase, conferência de cobertura, pares abaixo de 0,7 fora dos exercícios                                       |
 | Ortografia inconsistente                       | Normalização e tolerância na correção; dicionário guarda variantes de grafia                                                   |
@@ -637,12 +637,12 @@ Decisão do André: seguir, ajustar os prompts ou reduzir o papel da IA (nesse c
 Doze decisões tomadas pelo André em 29 e 30/10/2026; falta achar o falante.
 
 - [x] **Variante:** Emakhuwa central (vmw), a base da norma e a que o jw.org chama de "Emakhuwa".
-- [x] **Quem usa:** só o André, sem distribuir.
-- [x] **IA sobre o acervo:** chamadas à API liberadas para o agente ler e ajudar, no uso pessoal.
+- [x] **Quem usa:** André na fase pessoal; convidados a partir da A4, só se o item correspondente estiver marcado sim em `docs/autorizacao-jw.md` (seção 16, ADR-005).
+- [x] **IA sobre o acervo:** chamadas à API liberadas para o agente ler e ajudar, na fase pessoal; para convidados, só nos itens marcados sim em `docs/autorizacao-jw.md` (ADR-005).
 - [x] **Custo:** qualidade primeiro, sem teto, inclusive na voz; medir nos primeiros meses e ajustar pelo uso real — vale também para o inglês (ADENDO-v1.3).
 - [x] **Travas da v0.1:** `CorpusGuard`, regras de evidência, contestação, seletor de frases e conferência de cobertura mantidos.
 - [x] **Banco de dados:** Supabase (ADR-001).
-- [x] **Onde fica o corpus:** no Supabase, visível só para o André, com cópia offline no Dexie.
+- [x] **Onde fica o corpus:** no Supabase, na biblioteca do curso (padrão de conteúdo), visível ao André na fase pessoal e a convidados só nos itens autorizados, com cópia offline no Dexie.
 - [x] **Tutor e voz no módulo:** o tutor animado fala português e emakhuwa; a pronúncia em emakhuwa é validada pelo falante.
 - [x] **Modelo:** Opus 5.5 em tudo; o Fable 5.1 fica fora, salvo um teste opcional no chat.
 - [x] **Objetivo:** acompanhar reuniões, ler e também conversar no dia a dia — as quatro habilidades.
