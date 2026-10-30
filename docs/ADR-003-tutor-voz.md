@@ -96,7 +96,7 @@ A Fish cobra por **byte**. Em português, letras acentuadas ocupam 2 bytes, o qu
 
 **Conteúdo fixo (cache, pago uma vez para todos):** o currículo de 12 meses tem ~288 lições. Com ~1.500 caracteres por lição (explicação + enunciados), são ~430 mil caracteres: ~US$ 6,50 na Fish, ~US$ 17 no ElevenLabs Flash e ~US$ 35 no v4, no total. Rateado entre os alunos, é desprezível.
 
-**Teto:** a meta de voz fica **separada** da meta de IA de texto: **≤ US$ 1,50 por aluno ativo/mês para voz (TTS + STT)**, calibrada na Fase 3 com a medição real. Com a Fish, a suposição acima cabe no teto; com o ElevenLabs Flash, não cabe sem reduzir a cota.
+**Teto:** substituído pelo [ADENDO-v1.3](./ADENDO-v1.3.md) (qualidade primeiro): o custo de voz é medido e visível por aluno e por serviço, sem teto na v1, e a cota de fala vira cota alta de segurança, só contra loops. O resto deste ADR continua valendo.
 
 **Para 15 alunos:** IA de texto ~US$ 5-12/mês + voz ~US$ 16-21/mês na Fish ≈ **US$ 21-33/mês**. Com o ElevenLabs Flash, a voz sobe para ~US$ 42-47/mês.
 
