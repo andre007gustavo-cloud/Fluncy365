@@ -317,4 +317,19 @@ describe("SyncEngine - robustez do relatorio", () => {
     expect(upsertCalls).toBe(0);
     expect(await queue.pending(USER).then((q) => q.operations)).toHaveLength(1);
   });
+
+  it("sync de curso sem offline falha mesmo com outro sync em andamento", async () => {
+    await localSrs.upsertMany(USER, COURSE, [card("a")]);
+    const running = engine.sync(USER, COURSE);
+
+    await expect(engine.sync(USER, "vmw")).rejects.toThrow(/offline.*"vmw"/);
+
+    await running;
+  });
+
+  it("push e pull publicos tambem recusam curso sem offline", async () => {
+    await expect(engine.push(USER, "vmw")).rejects.toThrow(/offline.*"vmw"/);
+    await expect(engine.pull(USER, "vmw")).rejects.toThrow(/offline.*"vmw"/);
+    expect(upsertCalls).toBe(0);
+  });
 });

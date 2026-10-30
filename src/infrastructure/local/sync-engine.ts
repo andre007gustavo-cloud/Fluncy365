@@ -81,6 +81,12 @@ export class SyncEngine {
    * nunca sobrescreve entidades com operacao pendente.
    */
   sync(userId: string, courseId: CourseId): Promise<SyncReport> {
+    // Antes de reaproveitar uma execucao em curso: curso sem offline nunca pega carona.
+    try {
+      assertOfflineCourse(courseId);
+    } catch (error) {
+      return Promise.reject(error);
+    }
     const current = this.running.get(userId);
     if (current) {
       current.rerun = true;
@@ -116,6 +122,7 @@ export class SyncEngine {
    * Linhas invalidas da fila nao sao enviadas nem apagadas: voltam em `invalid`.
    */
   async push(userId: string, courseId: CourseId): Promise<PushResult> {
+    assertOfflineCourse(courseId);
     let pending: PendingQueue;
     try {
       pending = await this.queue.pending(userId);
@@ -146,6 +153,7 @@ export class SyncEngine {
    * de pendencias e a gravacao, e o pull e atomico.
    */
   async pull(userId: string, courseId: CourseId): Promise<number> {
+    assertOfflineCourse(courseId);
     const cards = await this.remote.srsCards.listAll(userId, courseId);
     const masteries = await this.remote.topicMastery.list(userId, courseId);
     const errors = await this.remote.errorLog.listRecent(userId, courseId, ERROR_LOG_PULL_LIMIT);
@@ -187,7 +195,6 @@ export class SyncEngine {
   }
 
   private async runSync(userId: string, courseId: CourseId): Promise<SyncReport> {
-    assertOfflineCourse(courseId);
     const { pushed, error, invalid } = await this.push(userId, courseId);
     if (error !== null) return { pushed, pulled: null, error: [error, ...invalid].join(" | ") };
 
