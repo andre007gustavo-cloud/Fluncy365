@@ -1,4 +1,4 @@
-import Dexie, { type DexieOptions, type EntityTable } from "dexie";
+import Dexie, { type DexieOptions, type EntityTable, type Table } from "dexie";
 import type { CefrLevel } from "@/domain/value-objects/cefr-level";
 import type { Skill } from "@/domain/value-objects/skill";
 
@@ -95,8 +95,8 @@ export class LocalDatabase extends Dexie {
   srsCards!: EntityTable<LocalSrsCard, "id">;
   studentModels!: EntityTable<LocalStudentModel, "userId">;
   streaks!: EntityTable<LocalStreak, "userId">;
-  topicMastery!: EntityTable<LocalTopicMastery>;
-  errorLog!: EntityTable<LocalErrorLog>;
+  topicMastery!: Table<LocalTopicMastery, [string, string]>;
+  errorLog!: Table<LocalErrorLog, [string, string]>;
   lessons!: EntityTable<LocalLesson, "id">;
   units!: EntityTable<LocalUnit, "id">;
   outbox!: EntityTable<PendingOperation, "id">;
