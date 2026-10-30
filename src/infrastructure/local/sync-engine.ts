@@ -48,8 +48,15 @@ export interface SyncReport {
 /** O port nao tem "listar tudo" para erros; este teto cobre qualquer aluno real. */
 const ERROR_LOG_PULL_LIMIT = 1000;
 
+interface Execution {
+  rerun: boolean;
+  promise: Promise<SyncReport>;
+}
+
+const EMPTY_REPORT: SyncReport = { pushed: 0, pulled: null, error: null };
+
 export class SyncEngine {
-  private readonly running = new Map<string, Promise<SyncReport>>();
+  private readonly running = new Map<string, Execution>();
 
   constructor(
     private readonly db: LocalDatabase,
@@ -59,18 +66,35 @@ export class SyncEngine {
   ) {}
 
   /**
-   * Chamadas concorrentes para o mesmo usuario reaproveitam a execucao em curso.
-   * O pull so roda se o envio esvaziou a fila: com falha no envio o servidor
-   * provavelmente esta inacessivel e a ordem das edicoes pendentes importa mais.
-   * Mesmo assim o pull nunca sobrescreve entidades com operacao pendente.
+   * Chamadas durante uma execucao em curso nao abrem uma segunda em paralelo: marcam
+   * uma nova rodada, feita ao terminar a atual, e recebem a promise do conjunto.
+   * Assim um evento "online" que chega no meio de um sync que vai falhar nao se perde.
+   * O pull so roda se o envio nao falhou: com falha no envio o servidor provavelmente
+   * esta inacessivel e a ordem das edicoes pendentes importa mais. Mesmo assim o pull
+   * nunca sobrescreve entidades com operacao pendente.
    */
   sync(userId: string): Promise<SyncReport> {
     const current = this.running.get(userId);
-    if (current) return current;
+    if (current) {
+      current.rerun = true;
+      return current.promise;
+    }
 
-    const run = this.runSync(userId).finally(() => this.running.delete(userId));
-    this.running.set(userId, run);
-    return run;
+    const execution: Execution = { rerun: false, promise: Promise.resolve(EMPTY_REPORT) };
+    execution.promise = this.syncUntilSettled(userId, execution).finally(() =>
+      this.running.delete(userId),
+    );
+    this.running.set(userId, execution);
+    return execution.promise;
+  }
+
+  private async syncUntilSettled(userId: string, execution: Execution): Promise<SyncReport> {
+    let report: SyncReport;
+    do {
+      execution.rerun = false;
+      report = await this.runSync(userId);
+    } while (execution.rerun);
+    return report;
   }
 
   /**

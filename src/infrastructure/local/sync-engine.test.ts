@@ -260,3 +260,23 @@ describe("SyncEngine - edicao durante o envio", () => {
     expect((await remoteSrs.listAll(USER))[0]?.front).toBe("v2");
   });
 });
+
+describe("SyncEngine - reconexao durante um sync em curso", () => {
+  it("chamada que chega durante um sync que falha gera nova rodada que envia", async () => {
+    await localSrs.upsertMany(USER, [card("a", "v1")]);
+    let reconnect: Promise<unknown> = Promise.resolve();
+    duringUpsert = async () => {
+      duringUpsert = null;
+      reconnect = engine.sync(USER);
+      throw new Error("conexao caiu");
+    };
+
+    const report = await engine.sync(USER);
+    await reconnect;
+
+    expect(upsertCalls).toBe(2);
+    expect(report.error).toBeNull();
+    expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
+    expect((await remoteSrs.listAll(USER))[0]?.front).toBe("v1");
+  });
+});
