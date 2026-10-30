@@ -581,6 +581,51 @@ export type Database = {
           },
         ];
       };
+      informant_answers: {
+        Row: {
+          answer: string;
+          answered_at: string;
+          course_id: string;
+          created_at: string;
+          id: string;
+          question_id: string;
+          user_id: string;
+        };
+        Insert: {
+          answer: string;
+          answered_at?: string;
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          question_id: string;
+          user_id: string;
+        };
+        Update: {
+          answer?: string;
+          answered_at?: string;
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          question_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "informant_answers_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "informant_answers_question_id_fkey";
+            columns: ["question_id"];
+            isOneToOne: false;
+            referencedRelation: "informant_questions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       informant_questions: {
         Row: {
           course_id: string;
@@ -612,6 +657,48 @@ export type Database = {
             columns: ["course_id"];
             isOneToOne: false;
             referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lexicon_contests: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          entry_id: string;
+          id: string;
+          reason: string;
+          user_id: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          entry_id: string;
+          id?: string;
+          reason: string;
+          user_id: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          entry_id?: string;
+          id?: string;
+          reason?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lexicon_contests_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lexicon_contests_entry_id_fkey";
+            columns: ["entry_id"];
+            isOneToOne: false;
+            referencedRelation: "lexicon_entries";
             referencedColumns: ["id"];
           },
         ];
