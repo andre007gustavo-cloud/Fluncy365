@@ -48,7 +48,8 @@ docs/                documentação
 
 - Para qualquer tarefa do módulo, leia também `docs/PLANEJAMENTO-EMAKHUWA.md` e `docs/ADR-004-modulo-emakhuwa.md`.
 - Nenhuma string em emakhuwa chega à interface sem passar pelo `CorpusGuard`; o status do léxico é decidido pelo `EvidenceScorer`, nunca pela IA.
-- Exceção à regra do proxy de IA: os scripts em `lab/` (laboratório local) podem chamar a API da Anthropic direto, com `ANTHROPIC_API_KEY` só em `lab/.env.local` (no `.gitignore`). Código em `src/` continua chamando a IA só por `/api/tutor`.
+- Exceção à regra do proxy de IA: os scripts em `lab/` (laboratório local) usam o Claude Agent SDK logado na conta do André, sem chave da API, com Opus 5.5 em todas as tarefas (ADR-006). Código em `src/` continua chamando a IA só por `/api/tutor`.
+- No processamento do acervo, o código prepara e o Opus revisa todos os pares e analisa as palavras no contexto da frase, nunca palavra por palavra.
 - A chave `service_role` do Supabase fica só no laboratório (`lab/.env.local`) e no servidor (worker), nunca no app, e sempre fora do Git (ADR-005).
 - Conteúdo do jw.org nunca entra no repositório nem em tabelas compartilhadas: só nas tabelas do curso `vmw`, com RLS por usuário, e no bucket privado.
 - Modelo de IA: Opus 5.5 (ver `docs/ADENDO-v1.3.md`).
