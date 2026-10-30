@@ -520,6 +520,114 @@ describe.skipIf(!parsedEnv.success)("RLS: corpus, mídia e léxico do curso vmw"
     );
   });
 
+  describe("vínculo de curso nas relações (FK composta)", () => {
+    it(
+      "contestação em 'en' não aponta para entrada do vmw",
+      async () => {
+        const { error } = await clientB.from("lexicon_contests").insert({
+          user_id: userIdB,
+          course_id: "en",
+          entry_id: ids.entryId,
+          reason: "cruzando cursos",
+        });
+        expect(error?.code).toBe("23503");
+      },
+      NETWORK_TIMEOUT_MS,
+    );
+
+    it(
+      "resposta em 'en' não aponta para pergunta do vmw",
+      async () => {
+        const { error } = await clientB.from("informant_answers").insert({
+          user_id: userIdB,
+          course_id: "en",
+          question_id: ids.questionId,
+          answer: "cruzando cursos",
+        });
+        expect(error?.code).toBe("23503");
+      },
+      NETWORK_TIMEOUT_MS,
+    );
+
+    it(
+      "segmento em 'en' não aponta para documento do vmw (nem com service_role)",
+      async () => {
+        const { error } = await service.from("corpus_segments").insert({
+          course_id: "en",
+          document_id: ids.docId,
+          paragraph_no: 9,
+          position: 9,
+          text_vmw: "x",
+          text_pt: "x",
+          text_normalized: "x",
+          alignment_score: 0.5,
+        });
+        expect(error?.code).toBe("23503");
+      },
+      NETWORK_TIMEOUT_MS,
+    );
+  });
+
+  describe("linhas de usuário: alheias e user_id", () => {
+    it(
+      "admin não altera nem apaga contestação de outro usuário",
+      async () => {
+        await adminClient
+          .from("lexicon_contests")
+          .update({ reason: "hack" })
+          .eq("user_id", userIdC);
+        await adminClient.from("lexicon_contests").delete().eq("user_id", userIdC);
+
+        const { data, error } = await service
+          .from("lexicon_contests")
+          .select("reason")
+          .eq("user_id", userIdC);
+        expect(error).toBeNull();
+        expect(data).toEqual([{ reason: "contestacao ficticia" }]);
+      },
+      NETWORK_TIMEOUT_MS,
+    );
+
+    it(
+      "usuário não muda o user_id da própria linha",
+      async () => {
+        const created = await adminClient
+          .from("lexicon_contests")
+          .insert({
+            user_id: adminId,
+            course_id: COURSE,
+            entry_id: ids.entryId,
+            reason: "para trocar dono",
+          })
+          .select("id")
+          .single();
+        expect(created.error).toBeNull();
+
+        const { error } = await adminClient
+          .from("lexicon_contests")
+          .update({ user_id: userIdB })
+          .eq("id", created.data?.id);
+        expect(error?.code).toBe("42501");
+      },
+      NETWORK_TIMEOUT_MS,
+    );
+
+    it(
+      "usuário recém-criado tem student_models e gamification em 'en' (trigger)",
+      async () => {
+        for (const table of ["student_models", "gamification"]) {
+          const { data, error } = await service
+            .from(table)
+            .select("course_id")
+            .eq("user_id", userIdB);
+          expect(error).toBeNull();
+          expect(data).toEqual([{ course_id: "en" }]);
+        }
+      },
+      NETWORK_TIMEOUT_MS,
+    );
+  });
+
   describe("feature flag module_vmw", () => {
     it(
       "true para o admin e false para B",
