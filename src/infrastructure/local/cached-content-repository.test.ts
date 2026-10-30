@@ -44,13 +44,14 @@ const UNIT: UnitSpec = {
 class FlakyRemote implements ContentRepositoryPort {
   down = false;
   lesson: Lesson | null = LESSON;
+  unit: UnitSpec | null = UNIT;
 
   private guard(): void {
     if (this.down) throw new Error("sem rede");
   }
   async findUnit(): Promise<UnitSpec | null> {
     this.guard();
-    return UNIT;
+    return this.unit;
   }
   async findLesson(): Promise<Lesson | null> {
     this.guard();
@@ -144,5 +145,19 @@ describe("CachedContentRepository", () => {
     expect(await repo.findUnit("u1")).toEqual(UNIT);
     expect(consoleError).toHaveBeenCalledTimes(2);
     vi.restoreAllMocks();
+  });
+
+  it("remoto sem a licao ou a unidade apaga a entrada do cache", async () => {
+    await repo.findLesson("u1", 1);
+    await repo.findUnit("u1");
+    remote.lesson = null;
+    remote.unit = null;
+
+    expect(await repo.findLesson("u1", 1)).toBeNull();
+    expect(await repo.findUnit("u1")).toBeNull();
+    remote.down = true;
+
+    await expect(repo.findLesson("u1", 1)).rejects.toThrow("sem rede");
+    await expect(repo.findUnit("u1")).rejects.toThrow("sem rede");
   });
 });

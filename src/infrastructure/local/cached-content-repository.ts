@@ -6,7 +6,7 @@ import type { LocalDatabase } from "./local-db";
 
 /**
  * Remoto primeiro; cada leitura bem-sucedida vira cache no Dexie. Se o remoto
- * falha, devolve o cache; sem cache (ou cache invalido), relanca o erro original.
+ * falha, devolve o cache; se o remoto responde que nao existe (despublicado), o cache e apagado; sem cache (ou cache invalido), relanca o erro original.
  * saveLesson e listJwRefs nao passam pelo cache: gravar e sempre do remoto e as
  * referencias JW ainda nao tem tabela local.
  */
@@ -36,6 +36,8 @@ export class CachedContentRepository implements ContentRepositoryPort {
           updatedAt: this.clock.now().getTime(),
         }),
       );
+    } else {
+      await this.tryCache(`remocao da unidade ${unitId}`, () => this.db.units.delete(unitId));
     }
     return unit;
   }
@@ -56,6 +58,10 @@ export class CachedContentRepository implements ContentRepositoryPort {
     if (lesson) {
       const cachedLesson = lesson;
       await this.tryCache(`licao ${cachedLesson.id}`, () => this.cacheLesson(cachedLesson));
+    } else {
+      await this.tryCache(`remocao da licao ${unitId}/${dayIndex}`, () =>
+        this.db.lessons.where("[unitId+dayIndex]").equals([unitId, dayIndex]).delete(),
+      );
     }
     return lesson;
   }
