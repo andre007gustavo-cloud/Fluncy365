@@ -362,17 +362,17 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "corpus_media_course_id_document_id_fkey";
+            columns: ["course_id", "document_id"];
+            isOneToOne: false;
+            referencedRelation: "corpus_documents";
+            referencedColumns: ["course_id", "id"];
+          },
+          {
             foreignKeyName: "corpus_media_course_id_fkey";
             columns: ["course_id"];
             isOneToOne: false;
             referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "corpus_media_document_id_fkey";
-            columns: ["document_id"];
-            isOneToOne: false;
-            referencedRelation: "corpus_documents";
             referencedColumns: ["id"];
           },
         ];
@@ -419,17 +419,17 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "corpus_segments_course_id_document_id_fkey";
+            columns: ["course_id", "document_id"];
+            isOneToOne: false;
+            referencedRelation: "corpus_documents";
+            referencedColumns: ["course_id", "id"];
+          },
+          {
             foreignKeyName: "corpus_segments_course_id_fkey";
             columns: ["course_id"];
             isOneToOne: false;
             referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "corpus_segments_document_id_fkey";
-            columns: ["document_id"];
-            isOneToOne: false;
-            referencedRelation: "corpus_documents";
             referencedColumns: ["id"];
           },
         ];
@@ -618,11 +618,11 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "informant_answers_question_id_fkey";
-            columns: ["question_id"];
+            foreignKeyName: "informant_answers_course_id_question_id_fkey";
+            columns: ["course_id", "question_id"];
             isOneToOne: false;
             referencedRelation: "informant_questions";
-            referencedColumns: ["id"];
+            referencedColumns: ["course_id", "id"];
           },
         ];
       };
@@ -688,17 +688,17 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "lexicon_contests_course_id_entry_id_fkey";
+            columns: ["course_id", "entry_id"];
+            isOneToOne: false;
+            referencedRelation: "lexicon_entries";
+            referencedColumns: ["course_id", "id"];
+          },
+          {
             foreignKeyName: "lexicon_contests_course_id_fkey";
             columns: ["course_id"];
             isOneToOne: false;
             referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "lexicon_contests_entry_id_fkey";
-            columns: ["entry_id"];
-            isOneToOne: false;
-            referencedRelation: "lexicon_entries";
             referencedColumns: ["id"];
           },
         ];
@@ -786,6 +786,13 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "lexicon_evidence_course_id_entry_id_fkey";
+            columns: ["course_id", "entry_id"];
+            isOneToOne: false;
+            referencedRelation: "lexicon_entries";
+            referencedColumns: ["course_id", "id"];
+          },
+          {
             foreignKeyName: "lexicon_evidence_course_id_fkey";
             columns: ["course_id"];
             isOneToOne: false;
@@ -793,18 +800,11 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "lexicon_evidence_entry_id_fkey";
-            columns: ["entry_id"];
-            isOneToOne: false;
-            referencedRelation: "lexicon_entries";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "lexicon_evidence_segment_id_fkey";
-            columns: ["segment_id"];
+            foreignKeyName: "lexicon_evidence_course_id_segment_id_fkey";
+            columns: ["course_id", "segment_id"];
             isOneToOne: false;
             referencedRelation: "corpus_segments";
-            referencedColumns: ["id"];
+            referencedColumns: ["course_id", "id"];
           },
         ];
       };
@@ -848,18 +848,18 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "media_clips_media_id_fkey";
-            columns: ["media_id"];
+            foreignKeyName: "media_clips_course_id_media_id_fkey";
+            columns: ["course_id", "media_id"];
             isOneToOne: false;
             referencedRelation: "corpus_media";
-            referencedColumns: ["id"];
+            referencedColumns: ["course_id", "id"];
           },
           {
-            foreignKeyName: "media_clips_segment_id_fkey";
-            columns: ["segment_id"];
+            foreignKeyName: "media_clips_course_id_segment_id_fkey";
+            columns: ["course_id", "segment_id"];
             isOneToOne: false;
             referencedRelation: "corpus_segments";
-            referencedColumns: ["id"];
+            referencedColumns: ["course_id", "id"];
           },
         ];
       };
@@ -903,11 +903,11 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "phrasebook_entries_recording_media_id_fkey";
-            columns: ["recording_media_id"];
+            foreignKeyName: "phrasebook_entries_course_id_recording_media_id_fkey";
+            columns: ["course_id", "recording_media_id"];
             isOneToOne: false;
             referencedRelation: "corpus_media";
-            referencedColumns: ["id"];
+            referencedColumns: ["course_id", "id"];
           },
         ];
       };

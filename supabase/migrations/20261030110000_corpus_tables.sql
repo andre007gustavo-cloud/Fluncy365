@@ -4,6 +4,8 @@
 -- Padrao de conteudo (content_*): leitura por quem enxerga o curso, escrita so
 -- pela service_role. course_id sem default: o curso e sempre informado.
 -- Contestacoes e respostas do falante ficam na migration seguinte.
+-- Relacoes entre tabelas usam FK composta (course_id, id): uma linha nunca aponta
+-- para outro curso. Por isso as tabelas referenciadas tem unique (course_id, id).
 -- ============================================================================
 
 begin;
@@ -22,6 +24,7 @@ create table public.corpus_documents (
     check (processing_status in ('pending', 'paired', 'aligned', 'analyzed', 'failed')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  unique (course_id, id),
   unique (course_id, kind, source_ref)
 );
 
@@ -29,7 +32,7 @@ create table public.corpus_documents (
 create table public.corpus_segments (
   id uuid primary key default gen_random_uuid(),
   course_id text not null references public.courses (id),
-  document_id uuid not null references public.corpus_documents (id) on delete cascade,
+  document_id uuid not null,
   paragraph_no integer not null check (paragraph_no >= 0),
   position integer not null check (position >= 0),
   text_vmw text not null,
@@ -38,34 +41,44 @@ create table public.corpus_segments (
   alignment_score real not null check (alignment_score between 0 and 1),
   alignment_note text,
   created_at timestamptz not null default now(),
-  unique (document_id, paragraph_no, position)
+  unique (course_id, id),
+  unique (course_id, document_id, paragraph_no, position),
+  foreign key (course_id, document_id)
+    references public.corpus_documents (course_id, id) on delete cascade
 );
 
 -- Audio e video no Storage privado
 create table public.corpus_media (
   id uuid primary key default gen_random_uuid(),
   course_id text not null references public.courses (id),
-  document_id uuid not null references public.corpus_documents (id) on delete cascade,
+  document_id uuid not null,
   lang text not null check (lang in ('pt', 'vmw')),
   kind text not null check (kind in ('audio', 'video')),
   storage_path text not null,
   duration_seconds real check (duration_seconds is null or duration_seconds > 0),
   subtitle_path text,
   created_at timestamptz not null default now(),
-  unique (course_id, storage_path)
+  unique (course_id, id),
+  unique (course_id, storage_path),
+  foreign key (course_id, document_id)
+    references public.corpus_documents (course_id, id) on delete cascade
 );
 
 -- Trechos de midia ligados a um segmento
 create table public.media_clips (
   id uuid primary key default gen_random_uuid(),
   course_id text not null references public.courses (id),
-  media_id uuid not null references public.corpus_media (id) on delete cascade,
-  segment_id uuid not null references public.corpus_segments (id) on delete cascade,
+  media_id uuid not null,
+  segment_id uuid not null,
   scope text not null check (scope in ('paragraph', 'sentence')),
   start_ms integer not null check (start_ms >= 0),
   end_ms integer not null,
   created_at timestamptz not null default now(),
-  check (end_ms > start_ms)
+  check (end_ms > start_ms),
+  foreign key (course_id, media_id)
+    references public.corpus_media (course_id, id) on delete cascade,
+  foreign key (course_id, segment_id)
+    references public.corpus_segments (course_id, id) on delete cascade
 );
 
 -- Dicionario vivo; o status e decidido pelo EvidenceScorer (codigo), nunca pela IA.
@@ -84,6 +97,7 @@ create table public.lexicon_entries (
   contest_count integer not null default 0 check (contest_count >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  unique (course_id, id),
   unique (course_id, form_normalized)
 );
 
@@ -91,12 +105,16 @@ create table public.lexicon_entries (
 create table public.lexicon_evidence (
   id uuid primary key default gen_random_uuid(),
   course_id text not null references public.courses (id),
-  entry_id uuid not null references public.lexicon_entries (id) on delete cascade,
-  segment_id uuid not null references public.corpus_segments (id) on delete cascade,
+  entry_id uuid not null,
+  segment_id uuid not null,
   sense text not null,
   supports boolean not null,
   created_at timestamptz not null default now(),
-  unique (entry_id, segment_id, sense)
+  unique (course_id, entry_id, segment_id, sense),
+  foreign key (course_id, entry_id)
+    references public.lexicon_entries (course_id, id) on delete cascade,
+  foreign key (course_id, segment_id)
+    references public.corpus_segments (course_id, id) on delete cascade
 );
 
 create table public.grammar_patterns (
@@ -120,7 +138,8 @@ create table public.informant_questions (
   question text not null,
   origin text not null,
   priority smallint not null default 3 check (priority between 1 and 5),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  unique (course_id, id)
 );
 
 create table public.phrasebook_entries (
@@ -129,11 +148,14 @@ create table public.phrasebook_entries (
   phrase_vmw text not null,
   phrase_pt text not null,
   situation text not null,
-  recording_media_id uuid references public.corpus_media (id) on delete set null,
+  recording_media_id uuid,
   status text not null default 'hypothesis'
     check (status in ('official', 'verified', 'confirmed', 'probable', 'hypothesis', 'contested')),
   created_at timestamptz not null default now(),
-  unique (course_id, phrase_vmw)
+  unique (course_id, phrase_vmw),
+  -- FK composta com coluna nula nao e checada (gravacao opcional); set null so na coluna da midia.
+  foreign key (course_id, recording_media_id)
+    references public.corpus_media (course_id, id) on delete set null (recording_media_id)
 );
 
 -- Resultado da prova fixa por lote
@@ -163,24 +185,19 @@ create table public.corpus_lessons (
 );
 
 -- ---------------------------------------------------------------------------
--- Indices das chaves estrangeiras. Onde a chave unica ja comeca pela coluna
--- (corpus_segments.document_id, lexicon_evidence.entry_id) nao se repete o indice.
+-- Indices das chaves estrangeiras. Onde uma chave unica ja comeca por
+-- (course_id, <coluna da FK>) nao se repete o indice.
 -- ---------------------------------------------------------------------------
 create index corpus_documents_course_id_idx on public.corpus_documents (course_id);
-create index corpus_segments_course_id_idx on public.corpus_segments (course_id);
-create index corpus_media_course_id_idx on public.corpus_media (course_id);
-create index corpus_media_document_id_idx on public.corpus_media (document_id);
-create index media_clips_course_id_idx on public.media_clips (course_id);
-create index media_clips_media_id_idx on public.media_clips (media_id);
-create index media_clips_segment_id_idx on public.media_clips (segment_id);
+create index corpus_media_document_id_idx on public.corpus_media (course_id, document_id);
+create index media_clips_media_id_idx on public.media_clips (course_id, media_id);
+create index media_clips_segment_id_idx on public.media_clips (course_id, segment_id);
 create index lexicon_entries_course_id_idx on public.lexicon_entries (course_id);
-create index lexicon_evidence_course_id_idx on public.lexicon_evidence (course_id);
-create index lexicon_evidence_segment_id_idx on public.lexicon_evidence (segment_id);
+create index lexicon_evidence_segment_id_idx on public.lexicon_evidence (course_id, segment_id);
 create index grammar_patterns_course_id_idx on public.grammar_patterns (course_id);
 create index informant_questions_course_id_idx on public.informant_questions (course_id);
-create index phrasebook_entries_course_id_idx on public.phrasebook_entries (course_id);
 create index phrasebook_entries_recording_media_id_idx
-  on public.phrasebook_entries (recording_media_id);
+  on public.phrasebook_entries (course_id, recording_media_id);
 create index agent_eval_runs_course_id_idx on public.agent_eval_runs (course_id);
 create index corpus_lessons_course_id_idx on public.corpus_lessons (course_id);
 
