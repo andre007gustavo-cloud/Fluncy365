@@ -28,7 +28,14 @@ export class CachedContentRepository implements ContentRepositoryPort {
       throw error;
     }
     if (unit) {
-      await this.db.units.put({ id: unit.id, data: unit, updatedAt: this.clock.now().getTime() });
+      const cachedUnit = unit;
+      await this.tryCache(`unidade ${cachedUnit.id}`, () =>
+        this.db.units.put({
+          id: cachedUnit.id,
+          data: cachedUnit,
+          updatedAt: this.clock.now().getTime(),
+        }),
+      );
     }
     return unit;
   }
@@ -46,7 +53,10 @@ export class CachedContentRepository implements ContentRepositoryPort {
       if (parsed.success) return parsed.data;
       throw error;
     }
-    if (lesson) await this.cacheLesson(lesson);
+    if (lesson) {
+      const cachedLesson = lesson;
+      await this.tryCache(`licao ${cachedLesson.id}`, () => this.cacheLesson(cachedLesson));
+    }
     return lesson;
   }
 
@@ -56,6 +66,15 @@ export class CachedContentRepository implements ContentRepositoryPort {
 
   listJwRefs(unitId: string): Promise<readonly JwRef[]> {
     return this.remote.listJwRefs(unitId);
+  }
+
+  /** Falha ao gravar o cache nao pode derrubar uma leitura remota que deu certo. */
+  private async tryCache(what: string, write: () => Promise<unknown>): Promise<void> {
+    try {
+      await write();
+    } catch (error) {
+      console.error(`Nao foi possivel guardar ${what} para uso offline:`, error);
+    }
   }
 
   private async cacheLesson(lesson: Lesson): Promise<void> {

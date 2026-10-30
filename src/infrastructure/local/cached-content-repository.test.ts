@@ -1,5 +1,5 @@
 import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JwRef, Lesson, UnitSpec } from "@/domain/entities/lesson";
 import type { ContentRepositoryPort } from "@/domain/ports/content-repository.port";
 import { FixedClock } from "@/infrastructure/fakes/in-memory-repositories";
@@ -133,5 +133,16 @@ describe("CachedContentRepository", () => {
 
   it("saveLesson repassa o erro do remoto", async () => {
     await expect(repo.saveLesson(LESSON)).rejects.toThrow("service_role");
+  });
+
+  it("falha ao gravar o cache nao derruba a leitura remota bem-sucedida", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(db.lessons, "put").mockRejectedValue(new Error("quota"));
+    vi.spyOn(db.units, "put").mockRejectedValue(new Error("quota"));
+
+    expect(await repo.findLesson("u1", 1)).toEqual(LESSON);
+    expect(await repo.findUnit("u1")).toEqual(UNIT);
+    expect(consoleError).toHaveBeenCalledTimes(2);
+    vi.restoreAllMocks();
   });
 });
