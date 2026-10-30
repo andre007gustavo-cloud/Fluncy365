@@ -21,6 +21,7 @@ export interface QueuedOperation {
   operation: SyncOperation;
   attempts: number;
   lastError: string | null;
+  revision: number;
 }
 
 export class InvalidQueuedOperationError extends Error {
@@ -139,6 +140,7 @@ export class OfflineQueue {
           updatedAt,
           attempts: 0,
           lastError: null,
+          revision: existing.revision + 1,
         });
         return;
       }
@@ -151,6 +153,7 @@ export class OfflineQueue {
         updatedAt,
         attempts: 0,
         lastError: null,
+        revision: 0,
       });
     });
   }
@@ -170,8 +173,17 @@ export class OfflineQueue {
     return new Set(rows.map((row) => pendingKey(row.kind, row.entityKey)));
   }
 
-  async ack(id: number): Promise<void> {
-    await this.db.outbox.delete(id);
+  /**
+   * Remove a operacao so se ela ainda estiver na revisao enviada. Se o aluno editou
+   * a mesma entidade durante o envio, a linha fica com o payload novo para o proximo push.
+   */
+  async ack(id: number, sentRevision: number): Promise<boolean> {
+    return this.db.transaction("rw", this.db.outbox, async () => {
+      const row = await this.db.outbox.get(id);
+      if (!row || row.revision !== sentRevision) return false;
+      await this.db.outbox.delete(id);
+      return true;
+    });
   }
 
   async markFailed(id: number, error: string): Promise<void> {
@@ -196,5 +208,6 @@ function toQueuedOperation(row: PendingOperation): QueuedOperation {
     operation: parsed.data as SyncOperation,
     attempts: row.attempts,
     lastError: row.lastError,
+    revision: row.revision,
   };
 }

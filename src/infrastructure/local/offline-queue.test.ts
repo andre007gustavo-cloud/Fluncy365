@@ -38,6 +38,7 @@ function rawRow(kind: string, payload: unknown) {
     createdAt: 1,
     updatedAt: 1,
     attempts: 0,
+    revision: 0,
     lastError: null,
   };
 }
@@ -88,8 +89,21 @@ describe("OfflineQueue", () => {
   it("ack remove a operacao", async () => {
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1") });
     const [first] = await queue.pending("u1");
-    await queue.ack(first!.id);
+    await queue.ack(first!.id, first!.revision);
     expect(await queue.pending("u1")).toHaveLength(0);
+  });
+
+  it("ack com revisao antiga mantem a linha editada depois do envio", async () => {
+    await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1", "v1") });
+    const [sent] = await queue.pending("u1");
+    await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1", "v2") });
+
+    expect(await queue.ack(sent!.id, sent!.revision)).toBe(false);
+
+    const [kept] = await queue.pending("u1");
+    expect(kept?.operation.payload).toMatchObject({ front: "v2" });
+    expect(kept?.revision).toBe(sent!.revision + 1);
+    expect(await queue.ack(kept!.id, kept!.revision)).toBe(true);
   });
 
   it("markFailed incrementa attempts e grava lastError; nova escrita zera", async () => {

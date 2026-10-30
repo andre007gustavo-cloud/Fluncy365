@@ -68,6 +68,7 @@ describe("LocalDatabase", () => {
       createdAt: 1,
       updatedAt: 1,
       attempts: 0,
+      revision: 0,
       lastError: null,
     });
     const found = await db.outbox

@@ -89,7 +89,7 @@ export class SyncEngine {
         await this.queue.markFailed(queued.id, message);
         return { pushed, error: message };
       }
-      await this.queue.ack(queued.id);
+      await this.queue.ack(queued.id, queued.revision);
       pushed += 1;
     }
     return { pushed, error: null };

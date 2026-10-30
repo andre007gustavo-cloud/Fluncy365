@@ -64,6 +64,7 @@ let remote: RemoteRepositories;
 let remoteSrs: InMemorySrsCardRepository;
 let remoteDown: boolean;
 let upsertCalls: number;
+let duringUpsert: (() => Promise<void>) | null;
 let duringRemoteRead: (() => Promise<void>) | null;
 let localSrs: DexieSrsCardRepository;
 let queue: OfflineQueue;
@@ -74,6 +75,7 @@ beforeEach(() => {
   remoteDown = false;
   upsertCalls = 0;
   duringRemoteRead = null;
+  duringUpsert = null;
   const clock = new FixedClock(NOW);
   db = new LocalDatabase(`sync-${counter}`, { indexedDB: new IDBFactory(), IDBKeyRange });
   queue = new OfflineQueue(db, clock);
@@ -91,6 +93,7 @@ beforeEach(() => {
       upsertMany: async (userId, cards) => {
         upsertCalls += 1;
         if (remoteDown) throw new Error("sem rede");
+        await duringUpsert?.();
         await remoteSrs.upsertMany(userId, cards);
       },
     },
@@ -187,6 +190,7 @@ describe("SyncEngine", () => {
       createdAt: 1,
       updatedAt: 1,
       attempts: 0,
+      revision: 0,
       lastError: null,
     });
 
@@ -225,5 +229,29 @@ describe("SyncEngine - corrida entre leitura remota e gravacao local", () => {
     expect(byId.get("a")).toBe("local");
     expect(byId.get("b")).toBe("servidor");
     expect(await queue.pending(USER)).toHaveLength(1);
+  });
+});
+
+describe("SyncEngine - edicao durante o envio", () => {
+  it("ack nao apaga a edicao feita durante o envio; o proximo push a envia", async () => {
+    await localSrs.upsertMany(USER, [card("a", "v1")]);
+    duringUpsert = async () => {
+      duringUpsert = null;
+      await localSrs.upsertMany(USER, [card("a", "v2")]);
+    };
+
+    const first = await engine.push(USER);
+
+    expect(first).toMatchObject({ pushed: 1, error: null });
+    const pending = await queue.pending(USER);
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.operation.payload).toMatchObject({ front: "v2" });
+
+    await engine.pull(USER);
+    expect((await localSrs.listAll(USER))[0]?.front).toBe("v2");
+
+    await engine.push(USER);
+    expect(await queue.pending(USER)).toEqual([]);
+    expect((await remoteSrs.listAll(USER))[0]?.front).toBe("v2");
   });
 });
