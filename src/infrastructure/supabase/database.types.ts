@@ -21,7 +21,7 @@ export type Database = {
         Insert: {
           by_service?: Json;
           calls?: number;
-          course_id?: string;
+          course_id: string;
           day: string;
           input_tokens?: number;
           output_tokens?: number;
@@ -102,7 +102,7 @@ export type Database = {
           url: string;
         };
         Insert: {
-          course_id?: string;
+          course_id: string;
           id: string;
           level: number;
           minutes: number;
@@ -147,7 +147,7 @@ export type Database = {
         };
         Insert: {
           blocks?: Json;
-          course_id?: string;
+          course_id: string;
           created_at?: string;
           day_index: number;
           exercises?: Json;
@@ -203,7 +203,7 @@ export type Database = {
           week: number;
         };
         Insert: {
-          course_id?: string;
+          course_id: string;
           grammar_topics?: string[];
           id: string;
           jw_refs?: string[];
@@ -471,7 +471,7 @@ export type Database = {
         Insert: {
           code: string;
           count?: number;
-          course_id?: string;
+          course_id: string;
           example?: string;
           last_at?: string;
           skill: Database["public"]["Enums"]["skill"];
@@ -509,7 +509,7 @@ export type Database = {
         };
         Insert: {
           avatar_stage?: number;
-          course_id?: string;
+          course_id: string;
           evolution_xp?: number;
           streak?: Json;
           unlocked_traits?: string[];
@@ -952,7 +952,7 @@ export type Database = {
         };
         Insert: {
           back: string;
-          course_id?: string;
+          course_id: string;
           created_at?: string;
           due_at?: string;
           ease?: number;
@@ -998,7 +998,7 @@ export type Database = {
           vocab_size: number;
         };
         Insert: {
-          course_id?: string;
+          course_id: string;
           levels?: Json;
           pace?: Json;
           updated_at?: string;
@@ -1038,7 +1038,7 @@ export type Database = {
         };
         Insert: {
           completed?: boolean;
-          course_id?: string;
+          course_id: string;
           day: string;
           duration_sec?: number;
           plan?: Json;
@@ -1084,7 +1084,7 @@ export type Database = {
         Insert: {
           accuracy?: number;
           attempts?: number;
-          course_id?: string;
+          course_id: string;
           last_seen?: string | null;
           sessions?: number;
           status?: Database["public"]["Enums"]["topic_status"];
