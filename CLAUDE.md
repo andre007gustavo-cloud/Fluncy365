@@ -44,6 +44,20 @@ docs/                documentação
 
 **Regra de dependência:** `domain` não importa NADA externo (nem React, nem Supabase, nem Next). `application` importa apenas `domain`. `infrastructure` implementa os ports do `domain`. `presentation` usa casos de uso via hooks/DI — nunca acessa Supabase/Anthropic diretamente.
 
+## Módulo emakhuwa (curso vmw)
+
+- Para qualquer tarefa do módulo, leia também `docs/PLANEJAMENTO-EMAKHUWA.md` e `docs/ADR-004-modulo-emakhuwa.md`.
+- Nenhuma string em emakhuwa chega à interface sem passar pelo `CorpusGuard`; o status do léxico é decidido pelo `EvidenceScorer`, nunca pela IA.
+- Exceção à regra do proxy de IA: os scripts em `lab/` (laboratório local) usam o Claude Agent SDK logado na conta do André, sem chave da API, com Opus 5.5 em todas as tarefas (ADR-006). Código em `src/` continua chamando a IA só por `/api/tutor`.
+- No processamento do acervo, o código prepara e o Opus revisa todos os pares e analisa as palavras no contexto da frase, nunca palavra por palavra.
+- A chave `service_role` do Supabase fica só no laboratório (`lab/.env.local`) e no servidor (worker), nunca no app, e sempre fora do Git (ADR-005).
+- Conteúdo do jw.org nunca entra no repositório nem em tabelas compartilhadas: só nas tabelas do curso `vmw`, com RLS por usuário, e no bucket privado.
+- Modelo de IA: Opus 5.5 (ver `docs/ADENDO-v1.3.md`).
+- A coleta automática, a biblioteca compartilhada, a distribuição e outros idiomas seguem o `docs/ADR-005-acervo-autorizado.md` e valem só para os itens marcados como "sim" em `docs/autorizacao-jw.md`.
+- O coletor baixa só arquivos públicos (EPUB, MP3, MP4, legendas), um por vez, com pausa, identificado, e para em caso de erro. Nunca varre páginas HTML.
+- A chave da Anthropic e a `service_role` do worker ficam só nas variáveis de ambiente do worker; o app chama a IA só por `/api/tutor`.
+- Toda tela com conteúdo do jw.org mostra a atribuição, o link oficial e o aviso de app independente e não oficial.
+
 ## Princípios SOLID no projeto
 
 - **S**: regra de negócio só em `domain`/`application`; componentes de UI apenas exibem e delegam.

@@ -3,9 +3,10 @@
 ### App de inglês do zero ao avançado em 1 ano · 20 minutos por dia
 
 > **Codinome do projeto:** Fluente365 (nome provisório — pode ser trocado a qualquer momento)
-> **Versão do documento:** 1.2 · Outubro/2026
+> **Versão do documento:** 1.3 · Outubro/2026
 > **Alterações:**
 >
+> - **v1.3:** política de IA e voz qualidade primeiro (ver [ADENDO-v1.3](./ADENDO-v1.3.md)).
 > - **v1.2:** um **tutor animado com voz natural**, personagem separado do avatar do aluno, entra na v1. Ver [`ADR-003`](./ADR-003-tutor-voz.md). Afeta as seções 1, 3, 4, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17 e 19. A Trilha de Imersão (RF11), que não tinha tarefa no roadmap, entrou na Fase 4.
 > - **v1.1:** o banco de dados deixou de ser Firebase/Firestore e passou a ser **Supabase (PostgreSQL + Auth + Row Level Security)**. Ver [`ADR-001`](./ADR-001-banco-de-dados.md).
 >
@@ -28,7 +29,7 @@
 11. [Arquitetura técnica](#11-arquitetura-técnica)
 12. [Modelo de dados (PostgreSQL/Supabase)](#12-modelo-de-dados)
 13. [Contratos de interface (SOLID)](#13-contratos-de-interface)
-14. [Custos de IA e controle de gastos](#14-custos-de-ia)
+14. [Custos de IA e de voz](#14-custos-de-ia-e-de-voz)
 15. [Roadmap detalhado — Fase 0 à Fase 6](#15-roadmap-detalhado)
 16. [Riscos e mitigações](#16-riscos-e-mitigações)
 17. [Métricas de sucesso](#17-métricas-de-sucesso)
@@ -123,8 +124,8 @@ Estes são os métodos que o app implementa — e que devem constar no system pr
 
 - RNF01 — PWA instalável, Lighthouse PWA ≥ 90; carregamento inicial < 3s em 4G.
 - RNF02 — Offline: revisões SRS e lições já baixadas funcionam sem rede; sincronização automática ao reconectar.
-- RNF03 — Segurança: chaves da API da Anthropic e dos fornecedores de voz **apenas** no servidor (variável de ambiente na Vercel); Row Level Security por usuário em todas as tabelas; rate limit por usuário no proxy de IA.
-- RNF04 — Custo: teto mensal configurável; meta ≤ US$1,50/usuário ativo/mês para IA de texto e ≤ US$1,50/usuário ativo/mês para voz (TTS + STT, ver ADR-003 e seção 14.4).
+- RNF03 — Segurança: chaves da API da Anthropic e dos fornecedores de voz **apenas** no servidor (variável de ambiente na Vercel); Row Level Security por usuário em todas as tabelas; limite de segurança alto por usuário no proxy de IA (ex.: 500 chamadas/dia), só contra loops e abuso, não é economia.
+- RNF04 — Custo: qualidade primeiro; custo de texto e de voz medido por usuário e por serviço no painel; revisão depois dos primeiros meses de uso real (ver ADENDO-v1.3 e seção 14).
 - RNF05 — Código: TypeScript estrito, Clean Architecture, princípios SOLID, cobertura de testes do domínio ≥ 80%.
 - RNF06 — Acessibilidade básica (contraste AA, navegação por teclado, textos alternativos, legenda em toda fala do tutor).
 - RNF07 — Privacidade: dados de progresso pertencem ao usuário; exportação e exclusão de conta disponíveis.
@@ -322,13 +323,15 @@ O agente **não é um modelo treinado** — é a API da Anthropic orquestrada po
 
 | Serviço                       | Quando roda                                    | Modelo sugerido                                              | Cache/compartilhado?                                                          |
 | ----------------------------- | ---------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| **ContentGenerator**          | 1ª vez que qualquer aluno chega a uma lição    | Haiku (batch quando possível)                                | ✅ Salvo no Supabase, reusado por todos                                       |
-| **WritingCoach**              | Correção de escrita livre                      | Haiku                                                        | ❌ individual (chamada curta)                                                 |
-| **SpeechCoach**               | Feedback sobre transcrição da fala             | Haiku                                                        | ❌ individual                                                                 |
-| **Remediator**                | Tópico em dificuldade → mini-lição alternativa | Haiku                                                        | Parcial (por tipo de erro, reusável)                                          |
-| **PlacementAnalyzer**         | Análise da escrita/fala no nivelamento         | Haiku                                                        | ❌ individual                                                                 |
-| **ConversationTutor**         | Modo conversa (fase 5)                         | Sonnet (qualidade de diálogo)                                | ❌ individual                                                                 |
+| **ContentGenerator**          | 1ª vez que qualquer aluno chega a uma lição    | Opus 5.5 (batch)                                             | ✅ Salvo no Supabase, reusado por todos                                       |
+| **WritingCoach**              | Correção de escrita livre                      | Opus 5.5                                                     | ❌ individual (chamada curta)                                                 |
+| **SpeechCoach**               | Feedback sobre transcrição da fala             | Opus 5.5                                                     | ❌ individual                                                                 |
+| **Remediator**                | Tópico em dificuldade → mini-lição alternativa | Opus 5.5                                                     | Parcial (por tipo de erro, reusável)                                          |
+| **PlacementAnalyzer**         | Análise da escrita/fala no nivelamento         | Opus 5.5                                                     | ❌ individual                                                                 |
+| **ConversationTutor**         | Modo conversa (fase 5)                         | Opus 5.5                                                     | ❌ individual                                                                 |
 | **TutorVoice** (voz, ADR-003) | Toda fala do tutor                             | Fish Audio (padrão) ou ElevenLabs; não é modelo de linguagem | ✅ Texto fixo em cache, reusado por todos; ❌ feedback e conversa individuais |
+
+O modelo é configurável por serviço (ver 14.2).
 
 ### 9.3 Pipeline de geração de conteúdo (gerar → validar → curar → reusar)
 
@@ -344,7 +347,7 @@ JSON: nota da rubrica (conteúdo/gramática/vocabulário 0-5), lista de erros `{
 
 ### 9.5 Guard-rails
 
-- Toda chamada passa pelo proxy `/api/tutor` (nunca do cliente direto): valida a sessão do Supabase, aplica rate limit por usuário (ex.: 40 chamadas/dia), registra tokens e custo, injeta o system prompt do servidor (o cliente nunca envia prompt de sistema).
+- Toda chamada passa pelo proxy `/api/tutor` (nunca do cliente direto): valida a sessão do Supabase, aplica limite de segurança alto por usuário (ex.: 500 chamadas/dia), só contra loops e abuso, registra tokens e custo, injeta o system prompt do servidor (o cliente nunca envia prompt de sistema).
 - Prompt caching ativado para o system prompt + spec (entrada repetida ~90% mais barata).
 - Temperatura baixa (0.3-0.5) para geração de exercícios; validação por schema em tudo.
 - Nenhum dado sensível do aluno vai para a IA além do necessário pedagógico (apelido, níveis, erros).
@@ -353,7 +356,7 @@ JSON: nota da rubrica (conteúdo/gramática/vocabulário 0-5), lista de erros `{
 
 - **Fluxo:** texto a ser falado (explicação, feedback ou turno de conversa) → proxy `/api/voz` → procura no cache (`tutor_audio_cache`; chave = hash de texto + idioma + voz + modelo) → se não houver, sintetiza no fornecedor configurado e salva no Supabase Storage → o cliente toca o áudio e anima a boca.
 - **Fornecedores atrás do `VoicePort`:** Fish Audio (padrão), ElevenLabs (alternativa) e Web Speech (reserva gratuita, offline e kill-switch). Trocar de fornecedor é configuração, não código.
-- **Guard-rails:** sessão do Supabase verificada; cota diária de fala do tutor na conversa (padrão 10 min por aluno; esgotada, a conversa segue em texto); caracteres e custo registrados em `admin_costs`; chaves só no servidor.
+- **Guard-rails:** sessão do Supabase verificada; cota alta de segurança de fala do tutor (ex.: 60 min/dia), só contra loops, que não limita o uso normal; esgotada, a conversa segue em texto; caracteres e custo registrados em `admin_costs`; chaves só no servidor.
 - **Escuta do aluno (STT):** Web Speech onde existir; no iPhone e em falhas, o áudio vai ao proxy para transcrição pela API do fornecedor.
 - **Modo conversa falável:** o prompt do ConversationTutor exige turnos de 1 a 3 frases, sem listas, marcação ou emojis, para soar natural em voz.
 
@@ -399,7 +402,7 @@ JSON: nota da rubrica (conteúdo/gramática/vocabulário 0-5), lista de erros `{
 | Estado       | Zustand (UI) + camada de casos de uso própria                                                                                                           | Simples, testável                                                                                                 |
 | Backend      | **API Routes da Vercel** (proxy de IA + webhooks)                                                                                                       | Sem servidor próprio; chave protegida em env var                                                                  |
 | Auth + Banco | **Supabase (Auth + PostgreSQL)**                                                                                                                        | Substitui Auth e banco num só produto; Row Level Security por usuário; SQL para as consultas do SRS (ver ADR-001) |
-| IA           | **API Anthropic** (Haiku 4.5; Sonnet no modo conversa)                                                                                                  | Custo/qualidade; ver seção 14                                                                                     |
+| IA           | **API Anthropic** (Opus 5.5 por padrão; modelo configurável por serviço)                                                                                | Custo/qualidade; ver seção 14                                                                                     |
 | Voz          | **`VoicePort`**: Fish Audio (padrão), ElevenLabs (alternativa), Web Speech (reserva gratuita e offline). STT: Web Speech + transcrição via proxy no iOS | Voz natural do tutor com custo controlado por cache; troca de fornecedor por configuração (ADR-003)               |
 | Animação     | Framer Motion + SVG em camadas                                                                                                                          | Avatar do aluno, tutor com boca sincronizada pela amplitude do áudio e micro-interações                           |
 | Testes       | Vitest (domínio/aplicação) + Playwright (E2E)                                                                                                           | Cobertura exigida no RNF05                                                                                        |
@@ -461,7 +464,7 @@ CLAUDE.md                  # Convenções para o Claude Code
 
 **Fala do tutor:** componente pede a fala → `get-tutor-speech` → cache local (lições baixadas) → proxy `/api/voz` → cache no Supabase Storage → fornecedor → o áudio toca e a boca do tutor acompanha a amplitude.
 
-**Segurança do proxy:** request com cookie de sessão do Supabase → verificação com `supabase.auth.getUser()` → rate limit (contador em tabela Postgres) → chamada Anthropic com system prompt do servidor → log de tokens/custo → resposta validada → cliente.
+**Segurança do proxy:** request com cookie de sessão do Supabase → verificação com `supabase.auth.getUser()` → limite de segurança contra loops (contador em tabela Postgres) → chamada Anthropic com system prompt do servidor → log de tokens/custo → resposta validada → cliente.
 
 ---
 
@@ -588,36 +591,46 @@ export type MouthShape = "rest" | "A" | "E" | "O" | "U" | "MBP" | "FV"; // 6 for
 
 ---
 
-## 14. Custos de IA
+## 14. Custos de IA e de voz
 
-### 14.1 Preços de referência (verificar sempre a página oficial de preços da Anthropic)
+### 14.1 Preços de referência de IA (outubro/2026 — conferir na página oficial antes de implementar)
 
-- Haiku 4.5: ~US$1 / US$5 por milhão de tokens (entrada/saída).
-- Sonnet: ~US$3 / US$15 por milhão (só no modo conversa).
-- **Prompt caching**: entrada repetida (system prompt + spec) custa ~10% do normal.
-- **Batch API**: 50% de desconto — usar na pré-geração de lições.
+| Modelo            | Entrada (US$/milhão de tokens)    | Saída (US$/milhão de tokens) | Uso                             |
+| ----------------- | --------------------------------- | ---------------------------- | ------------------------------- |
+| Claude Opus 5.5   | 4                                 | 20                           | **Padrão de todos os serviços** |
+| Claude Sonnet 5.5 | 2                                 | 10                           | Reserva, se for preciso reduzir |
+| Claude Haiku 5.5  | 0,10 (prompts até 100 mil tokens) | 0,50                         | Reserva, se for preciso reduzir |
+| Claude Fable 5.1  | 10                                | 50                           | Não usado                       |
 
-### 14.2 Estimativa por usuário ativo/mês (arquitetura desta spec)
+- **Prompt caching:** no Opus 5.5, a leitura de cache custa US$ 0,20 por milhão de tokens.
+- **Batch API:** metade do preço — usar na pré-geração de lições e nos lotes do laboratório emakhuwa.
 
-| Uso                                   | Volume mensal estimado                      | Custo aprox. (Haiku)                                  |
-| ------------------------------------- | ------------------------------------------- | ----------------------------------------------------- |
-| Correção de escrita (3×/sem)          | ~13 chamadas × 1,5k in + 0,6k out           | ~US$0,06                                              |
-| Feedback de fala (3×/sem)             | ~13 × 0,8k in + 0,3k out                    | ~US$0,03                                              |
-| Remediações                           | ~6 × 2k in + 1,5k out                       | ~US$0,06                                              |
-| Geração de lições (rateada, cacheada) | compartilhada entre todos                   | ~US$0,02                                              |
-| Modo conversa (B1+, Sonnet)           | ~12 sessões × 12k in (com caching) + 2k out | ~US$0,60                                              |
-| **Total**                             |                                             | **~US$0,15 (sem conversa) a ~US$0,80 (com conversa)** |
+> Alterado pelo [ADR-006](./ADR-006-laboratorio-com-assinatura.md): na fase pessoal o laboratório usa a assinatura, sem custo de API; Batch API e custo por lote valem para o worker (versão para convidados).
 
-Para 15 usuários da família: **~US$5-12/mês** só de IA de texto. Margem de segurança do RNF04 (US$1,50/usuário) coberta com folga. A voz do tutor é calculada à parte, na seção 14.4.
+- Fonte consultada: tabela de preços da API Claude, out/2026 (https://claudecoworkcourse.com/ai-api-pricing/claude). Conferir em https://docs.claude.com antes de configurar.
 
-### 14.3 Controles obrigatórios
+### 14.2 Modelo por serviço (configuração, não código)
 
-1. Log de tokens/custo por chamada em `admin/costs` (painel mostra custo do dia/mês).
-2. Rate limit por usuário no proxy (padrão: 40 chamadas de IA/dia).
-3. Teto mensal de gasto no console da Anthropic + crédito pré-pago (começar com US$5).
-4. Alerta por e-mail (cron Vercel) se o custo diário passar do limiar configurado.
-5. Kill-switch: flag em tabela de configuração desliga serviços de IA não essenciais mantendo o app funcional (conteúdo cacheado + exercícios determinísticos).
-6. Voz: cota diária de fala do tutor na conversa e kill-switch próprio, que troca os fornecedores pagos pela Web Speech (seção 14.4).
+O proxy lê o modelo de cada serviço de um mapa de configuração no servidor (por exemplo, `src/infrastructure/anthropic/model-routing.ts` ou variáveis `AI_MODEL_<SERVIÇO>`). Trocar de modelo = mudar uma linha de configuração.
+
+| Serviço                                         | Modelo           |
+| ----------------------------------------------- | ---------------- |
+| ContentGenerator                                | Opus 5.5 (batch) |
+| WritingCoach                                    | Opus 5.5         |
+| SpeechCoach                                     | Opus 5.5         |
+| Remediator                                      | Opus 5.5         |
+| PlacementAnalyzer                               | Opus 5.5         |
+| ConversationTutor                               | Opus 5.5         |
+| Serviços do módulo emakhuwa (app e laboratório) | Opus 5.5         |
+
+### 14.3 Estimativa (ordem de grandeza — a medição dos primeiros meses substitui)
+
+- **Inglês, IA de texto, Opus 5.5 em tudo:** cerca de US$ 2 a 4 por aluno ativo/mês; o modo conversa é perto da metade.
+- **Inglês, voz (ADR-003):** cerca de US$ 1,05 a 1,40 por aluno/mês com a Fish Audio; US$ 2,80 a 3,15 com o ElevenLabs Flash.
+- **Família de 15 alunos:** cerca de US$ 45 a 80 por mês com a Fish Audio.
+- **Módulo emakhuwa (uso pessoal):** cerca de US$ 20 a 50 por mês de texto, US$ 1 a 3 por lote do laboratório e US$ 1 a 5 de voz.
+
+> Alterado pelo [ADR-006](./ADR-006-laboratorio-com-assinatura.md): na fase pessoal o laboratório usa a assinatura, sem custo de API; Batch API e custo por lote valem para o worker (versão para convidados).
 
 ### 14.4 Custos de voz (ADR-003)
 
@@ -631,8 +644,23 @@ Preços de outubro/2026 (verificar sempre as páginas oficiais). Conversão: 1 m
 | **Total por aluno**               |                                        | **~US$1,05 a 1,40** | **~US$2,80 a 3,15** |
 
 - **Conteúdo fixo em cache:** ~430 mil caracteres para o currículo inteiro (~288 lições), pagos uma vez: ~US$6,50 na Fish ou ~US$17 no ElevenLabs Flash.
-- **Para 15 usuários da família:** IA de texto ~US$5-12 + voz ~US$16-21 na Fish ≈ **US$21-33/mês**. Com o ElevenLabs Flash, a voz sobe para ~US$42-47/mês.
-- **Controles:** cache do conteúdo fixo; cota diária de fala na conversa; voz no painel de custos (`by_service`: `tts` e `stt`); kill-switch de voz que troca os fornecedores pagos pela Web Speech.
+- **Para 15 usuários da família, texto e voz somados:** ver 14.3.
+- **Controles:** cache do conteúdo fixo; cota alta de segurança de fala (ex.: 60 min por aluno por dia), só contra loops; voz no painel de custos (`by_service`: `tts` e `stt`); kill-switch de voz que troca os fornecedores pagos pela Web Speech.
+
+### 14.5 Controles — visibilidade, não limite
+
+1. Log de tokens, caracteres de voz e custo por chamada em `admin_costs`; painel com o custo do dia e do mês, por serviço, por usuário e por curso.
+2. Alerta por e-mail quando o custo do dia passar de um valor que o André define — é aviso, não bloqueio.
+3. **Fusível contra bugs:** limite de gasto no console da Anthropic bem acima do uso esperado (ex.: US$ 150/mês), mais os limites altos de chamadas e de fala por usuário/dia. Servem para pegar um loop ou erro de programação, não para economizar.
+4. Kill-switches de IA e de voz mantidos para emergências.
+
+### 14.6 Se ficar caro: como reduzir sem refazer nada
+
+1. Trocar para Sonnet 5.5 ou Haiku 5.5 os serviços de menor impacto (SpeechCoach e PlacementAnalyzer primeiro).
+2. Na voz, preferir a Fish Audio ao ElevenLabs e aumentar o que sai do cache.
+3. Mais prompt caching e mais batch.
+4. Menos exemplos de contexto por chamada.
+5. Só por último: limites de uso por aluno.
 
 ---
 
@@ -691,7 +719,7 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 
 **Tarefas:**
 
-1. **Proxy `/api/tutor`:** verificação da sessão do Supabase (`auth.getUser()`), rate limit por usuário, injeção do system prompt do servidor, prompt caching, log de tokens/custo em `admin/costs`, tratamento de erro com retry/backoff.
+1. **Proxy `/api/tutor`:** verificação da sessão do Supabase (`auth.getUser()`), limite de segurança contra loops, injeção do system prompt do servidor, prompt caching, log de tokens/custo em `admin/costs`, tratamento de erro com retry/backoff.
 2. **System prompt do tutor v1** (arquivo versionado): persona, métodos da seção 2, erros PT-BR, estilo Murphy, formato JSON por tipo de tarefa. Escrever e testar aqui no chat antes de commitar.
 3. **Specs das unidades (meses 1-3)** no formato `content/units` + validação zod.
 4. **ContentGenerator + pipeline 9.3:** geração on-demand → validação de schema → validação pedagógica → salvar com `status: auto` → servir do cache. Fallback para lição seed em falha dupla.
@@ -701,7 +729,7 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 8. **Painel admin v1:** custo do dia/mês, fila de lições `auto` para aprovar/editar, visão de progresso dos usuários.
 
 **Entregáveis:** aluno em qualquer ponto do A1-A2 recebe lições geradas/cacheadas e correção de escrita real.
-**Critérios de aceite:** 95% das gerações passam na validação de schema em 1ª tentativa; lição gerada 1× é servida do cache nas próximas (verificar custo marginal ~zero); correção de escrita aponta erros reais em 10 textos de teste com qualidade aprovada por você; custo medido por sessão dentro da estimativa da seção 14; impossível chamar a API sem token válido (testado).
+**Critérios de aceite:** 95% das gerações passam na validação de schema em 1ª tentativa; lição gerada 1× é servida do cache nas próximas (verificar custo marginal ~zero); correção de escrita aponta erros reais em 10 textos de teste com qualidade aprovada por você; custo medido e registrado por sessão e por serviço; impossível chamar a API sem token válido (testado).
 
 ---
 
@@ -714,7 +742,7 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 1. **Curadoria inicial jw.org:** planilha → `content/jwRefs` com 40-60 conteúdos classificados (A1-B1) entre artigos com áudio e vídeos com legenda; tela admin de curadoria.
 2. **Bloco Input Real do player:** leitura com áudio oficial (streaming da fonte), tarefa acoplada (compreensão/V-F geradas pela IA sobre o trecho, cacheadas por conteúdo).
 3. **Ditado:** player de trecho curto → digitação → correção diff palavra a palavra com destaque visual; níveis de ajuda (velocidade 0.75×, repetição).
-4. **Porta de voz e proxy `/api/voz` (ADR-003):** `VoicePort` com adaptadores Fish Audio, ElevenLabs e Web Speech; cache compartilhado em `tutor_audio_cache` + Supabase Storage; cota diária de fala; caracteres e custo em `admin_costs`; kill-switch de voz.
+4. **Porta de voz e proxy `/api/voz` (ADR-003):** `VoicePort` com adaptadores Fish Audio, ElevenLabs e Web Speech; cache compartilhado em `tutor_audio_cache` + Supabase Storage; cota alta de segurança de fala; caracteres e custo em `admin_costs`; kill-switch de voz.
 5. **Teste cego de vozes:** a mesma fala em português e em inglês em cada fornecedor; você escolhe a voz do tutor; a escolha fica registrada no ADR-003.
 6. **TTS:** pronúncia de qualquer palavra/frase do app pelo `VoicePort` (com cache); botão de áudio nos cartões SRS.
 7. **Pré-geração do áudio** das explicações e enunciados dos meses 1-3, em lote, no cache compartilhado.
@@ -757,15 +785,15 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 **Tarefas:**
 
 1. **ConversationTutor (texto):** conversa contextual ao material da semana; correção gentil por recast (o tutor reformula certo e segue), com "raio-x" opcional ao final listando os pontos corrigidos; memória curta do aluno (resumo de perfil injetado).
-2. **Conversa por voz com o tutor animado:** voz por streaming (`VoicePort.stream`); estados ouvindo → pensando → falando; turnos curtos (seção 9.6); aluno responde por STT; modo mãos-livres; boca guiada pela marcação de tempo quando o fornecedor a devolver (senão, pela amplitude); esgotada a cota diária de fala, a conversa segue em texto.
+2. **Conversa por voz com o tutor animado:** voz por streaming (`VoicePort.stream`); estados ouvindo → pensando → falando; turnos curtos (seção 9.6); aluno responde por STT; modo mãos-livres; boca guiada pela marcação de tempo quando o fornecedor a devolver (senão, pela amplitude); esgotada a cota alta de segurança de fala, a conversa segue em texto.
 3. **Roleplays:** cenários práticos (dar testemunho informal, apresentar-se, explicar um versículo, situações cotidianas) definidos no syllabus.
 4. **Espiral B2/C1:** specs dos meses 8-12 com as revisitas de profundidade; exercícios de nuance (escolher entre 2 formas corretas pela intenção).
 5. **Resumos orais/escritos avaliados por rubrica.**
-6. **Model routing:** conversa no Sonnet, resto no Haiku; medição do custo real do modo conversa (texto e voz, seções 14.2 e 14.4) e ajuste dos limites diários e da cota de fala.
+6. **Model routing:** modelo por serviço configurável (padrão Opus 5.5); medição do custo real de texto e voz (seções 14.3 e 14.4); ajustes só depois dos primeiros meses.
 7. **Marco trimestral:** mini-nivelamento comparativo com tela de evolução ("você subiu de A2.3 para B1.1 em leitura").
 
 **Entregáveis:** app completo em funcionalidades de aprendizado.
-**Critérios de aceite:** aluno B1 sustenta conversa de 5 min com correções úteis; tutor lembra erros recorrentes do aluno (verificável); custo do modo conversa (texto e voz) dentro das estimativas; a primeira fala do tutor começa em até ~3 s depois que o aluno termina (meta inicial); espiral aparece nos planos de sessão dos meses certos.
+**Critérios de aceite:** aluno B1 sustenta conversa de 5 min com correções úteis; tutor lembra erros recorrentes do aluno (verificável); custo do modo conversa (texto e voz) medido e visível no painel; a primeira fala do tutor começa em até ~3 s depois que o aluno termina (meta inicial); espiral aparece nos planos de sessão dos meses certos.
 
 ---
 
@@ -783,7 +811,7 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 6. Rodada de feedback estruturada (formulário no app) + correções da lista.
 
 **Entregáveis:** v1.0 em produção com a turma completa dentro.
-**Critérios de aceite:** 10+ usuários ativos por 2 semanas; zero bugs bloqueantes abertos; custo mensal real dentro do teto; backup automático configurado; você consegue operar tudo pelo painel sem tocar em código.
+**Critérios de aceite:** 10+ usuários ativos por 2 semanas; zero bugs bloqueantes abertos; custo mensal real medido e revisado com o André; backup automático configurado; você consegue operar tudo pelo painel sem tocar em código.
 
 ---
 
@@ -804,21 +832,21 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 
 ## 16. Riscos e mitigações
 
-| #   | Risco                                                            | Impacto     | Mitigação                                                                                                                                              |
-| --- | ---------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Direitos autorais Murphy                                         | Legal       | Usar apenas a sequência de tópicos como mapa; todo conteúdo gerado é original; livro citado só como referência para quem o possui                      |
-| 2   | Uso do conteúdo jw.org                                           | Legal/ético | Nunca copiar/armazenar publicações; apenas referenciar e abrir da fonte oficial; citações mínimas com fim didático; respeitar os termos de uso do site |
-| 3   | Qualidade da geração por IA (erros no gabarito, explicação ruim) | Produto     | Validação de schema + validação pedagógica automática + fila de revisão humana + fallback seed + botão "reportar erro" em todo exercício               |
-| 4   | STT no iOS/Safari limitado                                       | Produto     | Fallback MediaRecorder→API; degradação para shadowing auto-avaliado; testar em iPhone real na Fase 3                                                   |
-| 5   | Custo de IA fugir do previsto                                    | Financeiro  | Cache de conteúdo, prompt caching, rate limit, teto no console, kill-switch, painel de custo diário                                                    |
-| 6   | Abandono do hábito pelos usuários                                | Missão      | Streak com escudos, sessão de resgate, lembretes, relatório de progresso concreto, mural da turma                                                      |
-| 7   | Escopo crescer sem fim (feature creep)                           | Cronograma  | Este documento é o contrato de escopo da v1; ideias novas vão para a seção 19 (backlog), não para a fase atual                                         |
-| 8   | Nivelamento impreciso frustrar veteranos                         | Produto     | Nivelamento provisório com correção acelerada nas 2 primeiras semanas + botão "isso está fácil/difícil demais" que alimenta o motor                    |
-| 9   | Dependência de um só desenvolvedor (você)                        | Operacional | CI, testes, documentação as-built e runbook desde o início; Claude Code acelera manutenção                                                             |
-| 10  | Custo de voz fugir do previsto                                   | Financeiro  | Cache do conteúdo fixo, cota diária de fala, voz no painel de custos, kill-switch para a Web Speech (ADR-003)                                          |
-| 11  | Voz ruim em português ou em inglês                               | Produto     | Teste cego na Fase 3 com a mesma voz nos dois idiomas; se preciso, uma voz por idioma                                                                  |
-| 12  | Conversa por voz lenta                                           | Produto     | Voz por streaming, turnos curtos, estado "pensando" animado, meta de ~3 s até a primeira fala                                                          |
-| 13  | Dependência de um fornecedor de voz                              | Operacional | `VoicePort` com três adaptadores; troca por configuração                                                                                               |
+| #   | Risco                                                            | Impacto     | Mitigação                                                                                                                                                       |
+| --- | ---------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Direitos autorais Murphy                                         | Legal       | Usar apenas a sequência de tópicos como mapa; todo conteúdo gerado é original; livro citado só como referência para quem o possui                               |
+| 2   | Uso do conteúdo jw.org                                           | Legal/ético | Nunca copiar/armazenar publicações; apenas referenciar e abrir da fonte oficial; citações mínimas com fim didático; respeitar os termos de uso do site          |
+| 3   | Qualidade da geração por IA (erros no gabarito, explicação ruim) | Produto     | Validação de schema + validação pedagógica automática + fila de revisão humana + fallback seed + botão "reportar erro" em todo exercício                        |
+| 4   | STT no iOS/Safari limitado                                       | Produto     | Fallback MediaRecorder→API; degradação para shadowing auto-avaliado; testar em iPhone real na Fase 3                                                            |
+| 5   | Custo de IA fugir do previsto                                    | Financeiro  | Decisão consciente de qualidade primeiro; painel diário, alerta por e-mail, fusível contra bugs, kill-switch de IA e de voz; plano de redução da 14.6           |
+| 6   | Abandono do hábito pelos usuários                                | Missão      | Streak com escudos, sessão de resgate, lembretes, relatório de progresso concreto, mural da turma                                                               |
+| 7   | Escopo crescer sem fim (feature creep)                           | Cronograma  | Este documento é o contrato de escopo da v1; ideias novas vão para a seção 19 (backlog), não para a fase atual                                                  |
+| 8   | Nivelamento impreciso frustrar veteranos                         | Produto     | Nivelamento provisório com correção acelerada nas 2 primeiras semanas + botão "isso está fácil/difícil demais" que alimenta o motor                             |
+| 9   | Dependência de um só desenvolvedor (você)                        | Operacional | CI, testes, documentação as-built e runbook desde o início; Claude Code acelera manutenção                                                                      |
+| 10  | Custo de voz fugir do previsto                                   | Financeiro  | Decisão consciente de qualidade primeiro; painel diário, alerta por e-mail, fusível contra bugs, kill-switch de IA e de voz; plano de redução da 14.6 (ADR-003) |
+| 11  | Voz ruim em português ou em inglês                               | Produto     | Teste cego na Fase 3 com a mesma voz nos dois idiomas; se preciso, uma voz por idioma                                                                           |
+| 12  | Conversa por voz lenta                                           | Produto     | Voz por streaming, turnos curtos, estado "pensando" animado, meta de ~3 s até a primeira fala                                                                   |
+| 13  | Dependência de um fornecedor de voz                              | Operacional | `VoicePort` com três adaptadores; troca por configuração                                                                                                        |
 
 ---
 
@@ -839,7 +867,7 @@ Estimativas para dedicação parcial (~10-15h/semana) com o Claude Code como par
 
 **Operacionais:**
 
-- Custo de IA de texto ≤ US$1,50 e de voz ≤ US$1,50 por usuário ativo/mês; uptime "sempre que alguém tentou estudar, conseguiu"; zero incidentes de segurança.
+- Custo de texto e de voz medido por usuário e por serviço, revisado todo mês; uptime "sempre que alguém tentou estudar, conseguiu"; zero incidentes de segurança.
 
 ---
 
