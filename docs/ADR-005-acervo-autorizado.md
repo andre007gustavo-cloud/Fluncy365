@@ -2,6 +2,9 @@
 
 - **Data:** 2026-10-30
 - **Status:** Aceita. Vale nos limites registrados em `docs/autorizacao-jw.md`; condições da organização prevalecem sobre este ADR.
+
+> **Alterado pelo [ADR-006](./ADR-006-laboratorio-com-assinatura.md):** o laboratório usa a assinatura pelo Claude Agent SDK, sem chave da API; a regra da `service_role` deste ADR continua valendo.
+
 - **Contexto:** o ADR-004 desenhou o módulo emakhuwa para uso pessoal, com arquivos baixados à mão e corpus visível só ao André. Em 30/10/2026 o jw.org aprovou a proposta de coleta automática, biblioteca no servidor, distribuição gratuita e outros idiomas.
 
 ## Decisão

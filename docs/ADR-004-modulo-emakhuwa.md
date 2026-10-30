@@ -5,6 +5,8 @@
 
 > **Alterado pelo [ADR-005](./ADR-005-acervo-autorizado.md):** a gravação no corpus pode usar a chave `service_role`, só no laboratório e no servidor, nunca no app e sempre fora do Git.
 
+> **Alterado pelo [ADR-006](./ADR-006-laboratorio-com-assinatura.md):** o laboratório usa a assinatura pelo Claude Agent SDK, sem chave da API, e passa a processar o acervo na fase pessoal.
+
 - **Contexto:** o `PLANEJAMENTO-EMAKHUWA.md` v0.1 previa um curso só de leitura, um coletor que buscava páginas do jw.org pelo servidor, áudio só por link e um tutor que nunca falaria emakhuwa (ADR-003). Em 29 e 30/10/2026 o André revisou o módulo e decidiu ampliá-lo. Este ADR registra as decisões de arquitetura; o plano completo está no `PLANEJAMENTO-EMAKHUWA.md` v1.0.
 
 ## Decisão

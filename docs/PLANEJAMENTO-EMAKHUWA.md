@@ -2,8 +2,9 @@
 
 ### Curso pessoal de emakhuwa (macua) dentro do Fluente365 · 20 minutos por dia
 
-> **Versão do documento:** 1.1 · 30/10/2026 · **Status:** aprovado pelo André
+> **Versão do documento:** 1.2 · 30/10/2026 · **Status:** aprovado pelo André
 > **v1.1:** versão com acervo autorizado pelo jw.org (ver seção 16 e ADR-005)
+> **v1.2:** laboratório pela assinatura (Agent SDK), Opus revisando todo o alinhamento, processamento sob demanda (ADR-006)
 > **Local no repositório:** `docs/PLANEJAMENTO-EMAKHUWA.md` (substitui a v0.1)
 > **Relação com o plano principal:** complementa o [`PLANEJAMENTO.md`](./PLANEJAMENTO.md) (v1.3). Tudo que não estiver dito aqui segue o plano principal: arquitetura, SOLID, testes, CI e definição de pronto.
 > **Decisões registradas em:** [`ADR-002`](./ADR-002-multi-idioma.md) (multi-idioma), [`ADR-004`](./ADR-004-modulo-emakhuwa.md) (este módulo) e [`ADENDO-v1.3`](./ADENDO-v1.3.md) (política de IA e voz).
@@ -151,12 +152,13 @@ Cada publicação importada passa por seis etapas e vira matéria-prima de liç�
 
 1. **Importar.** O André escolhe o EPUB da mesma publicação nos dois idiomas. O laboratório abre o EPUB (um pacote de páginas HTML) e extrai parágrafos, subtítulos, perguntas de estudo e referências bíblicas. O importador lê o idioma declarado no arquivo e recusa o que não for emakhuwa central, para nunca misturar variantes.
 2. **Alinhar parágrafos.** As publicações traduzidas do jw.org mantêm a mesma estrutura: parágrafos numerados, subtítulos, perguntas. O alinhamento é 1:1 por posição e número, com conferência automática. A Bíblia, se houver no idioma, alinha por versículo.
-3. **Alinhar frases.** Dentro de cada par de parágrafos, separam-se as frases e casam-se as duas línguas por comprimento e por âncoras (números, nomes próprios, referências bíblicas). Casos 1:2 ou 2:1 vão para a IA conferir. Cada par recebe uma nota de confiança.
-   - **Conferência de cobertura:** juntar as frases de um parágrafo tem que reproduzir o parágrafo original, nos dois idiomas — nada perdido, inventado ou duplicado. Se falhar, o alinhamento é refeito.
+3. **Alinhar frases.** O código separa as frases de cada par de parágrafos e propõe o pareamento por comprimento e por âncoras (números, nomes próprios, referências bíblicas). **O Opus revisa todos os pares**: confirma, junta ou divide (casos 1:2 e 2:1), marca traduções não literais e dá a nota de confiança. A conferência de cobertura continua: juntar as frases tem que reproduzir o parágrafo, nos dois idiomas.
    - Pares com confiança abaixo de 0,7 ficam guardados, mas fora de lições e exercícios.
-4. **Alinhar palavras e morfemas.** Três sinais combinados: análise morfológica (regras do emakhuwa-tokenizer portadas para TypeScript), um modelo estatístico de coocorrência sobre o corpus inteiro (IBM Model 1) e a IA propondo e explicando. Resultado: candidatos com evidência, não certezas.
+4. **Analisar palavras no contexto.** A análise é feita **frase a frase, pelo sentido**, nunca palavra por palavra. O Opus recebe a frase nos dois idiomas, a análise morfológica (regras do emakhuwa-tokenizer) e os candidatos estatísticos (IBM Model 1 sobre o acervo), e explica o que cada parte da frase em emakhuwa faz naquele contexto. Cada sentido de uma palavra é guardado com as frases de onde veio. Quando uma palavra aparece num contexto em que nenhum sentido guardado encaixa, ela é reanalisada. Resultado: candidatos com evidência, não certezas.
 5. **Dicionário vivo.** A unidade é a palavra como aparece no texto; a raiz proposta agrupa as formas em famílias. Cada entrada tem sentidos em português, frases-evidência, número de ocorrências, número de documentos diferentes e status (seção 6.3). O Vocabulário da SIL serve de conferência.
 6. **Sincronizar áudio.** Na primeira versão, o MP3 do texto é cortado por parágrafo (detecção de pausas, com ajuste manual). O corte por frase, com alinhamento forçado, é testado na fase E3.
+
+**Ordem de processamento (sob demanda).** Primeiro o material da reunião da semana e o que o André estiver estudando; depois textos diários, folhetos, cânticos e vídeos curtos; livros longos por último. A contagem de ocorrências (código, sem IA) roda no acervo todo desde o começo, para o `EvidenceScorer` acumular provas mais rápido.
 
 **Vídeos.** O MP4 do mesmo vídeo nos dois idiomas, com as legendas quando houver, entra pelo mesmo caminho. As falas se alinham pelo tempo, e o texto alimenta o dicionário vivo como qualquer artigo (seção 7.2).
 
@@ -442,8 +444,8 @@ O módulo entra como um segundo curso do Fluente365: reaproveita SRS, Session Pl
 
 ### 12.1 Três partes: coletor e processamento no servidor, laboratório, app
 
-- **Coletor e processamento no servidor (worker).** Um serviço agendado com fila de tarefas, fora da Vercel por causa do tempo de execução. Monta o catálogo, baixa os arquivos, pareia os idiomas pelo número do documento, alinha, analisa, corta áudio e roda a prova fixa. A chave da Anthropic fica só nas variáveis de ambiente do worker. Escreve na biblioteca com a chave `service_role`, que nunca sai do servidor.
-- **Laboratório local (`lab/`).** Continua para o que é pesado demais ou experimental: voz sintética (MMS), alinhamento forçado de áudio, testes de reconhecimento de voz e o eventual ajuste fino de um modelo de tradução. Regras do ADR-004 mantidas, com uma mudança: a gravação no corpus usa a `service_role`, guardada só em `lab/.env.local`, fora do Git e nunca no app.
+- **Coletor e processamento no servidor (worker).** Um serviço agendado com fila de tarefas, fora da Vercel por causa do tempo de execução. Monta o catálogo, baixa os arquivos, pareia os idiomas pelo número do documento. Na versão para convidados (fases A2 em diante), processa pela API (Opus 5.5) só o que o laboratório ainda não processou: alinha, analisa, corta áudio e roda a prova fixa. A chave da Anthropic fica só nas variáveis de ambiente do worker. Escreve na biblioteca com a chave `service_role`, que nunca sai do servidor.
+- **Laboratório local (`lab/`).** Na fase de uso pessoal, faz o processamento do acervo (pré-pareamento, revisão do alinhamento, análise no contexto, corte de áudio, prova fixa) e o que é pesado ou experimental: voz sintética (MMS), alinhamento forçado de áudio, testes de reconhecimento de voz e o eventual ajuste fino de um modelo de tradução. Usa o **Claude Agent SDK** (`@anthropic-ai/claude-agent-sdk`) logado na conta Claude do André, consumindo o limite da assinatura, não a API; modelo Opus 5.5 em todas as tarefas; processa em lotes com ponto de retomada por documento e, quando o limite da assinatura acaba, pausa e continua sozinho depois; não guarda nenhuma chave da API. Grava no corpus com a `service_role`, guardada só em `lab/.env.local` (fora do Git) e nunca no app (ADR-005, ADR-006).
 - **App de estudo (Fluente365).** Lê a biblioteca do curso `vmw`, guarda no Dexie só a parte que o aluno está estudando e chama a IA só pelo proxy `/api/tutor`.
 
 ### 12.2 Camadas
@@ -607,23 +609,24 @@ Decisão do André: seguir, ajustar os prompts ou reduzir o papel da IA (nesse c
 **Custo esperado, em ordem de grandeza** (Opus 5.5 a US$ 4 / 20 por milhão de tokens de entrada/saída — conferir na página oficial):
 
 - **Texto:** por dia, glosa do parágrafo, um padrão, três traduções reversas, uma compreensão, vídeo em dias alternados e umas cinco perguntas ao agente, cada chamada com 20 a 50 frases de contexto — cerca de US$ 20 a 50 por mês.
-- **Laboratório:** cerca de US$ 1 a 3 por lote importado.
+- **Laboratório:** sem custo extra na fase pessoal, usa o limite da assinatura (ADR-006).
 - **Voz:** cerca de US$ 1 a 5 por mês.
 
-| Risco                                       | Mitigação                                                                                                                           |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| IA errar emakhuwa com confiança             | Status decidido por código, botão de contestar, gabarito sempre oficial, prova fixa por lote, falante no ciclo                      |
-| IA inventar frases em emakhuwa              | `CorpusGuard` rejeita qualquer frase fora do corpus                                                                                 |
-| Uso do conteúdo fora dos termos             | Arquivos baixados pelo próprio André, corpus só na conta dele, sem raspagem, curso `owner_only`                                     |
-| Mistura de variantes                        | Só emakhuwa central; o importador recusa arquivos de outra variante                                                                 |
-| Tradução não literal confunde o alinhamento | Alinhamento por frase, conferência de cobertura, pares abaixo de 0,7 fora dos exercícios                                            |
-| Ortografia inconsistente                    | Normalização e tolerância na correção; dicionário guarda variantes de grafia                                                        |
-| Tom não marcado na escrita                  | Treino perceptivo com áudio real; falante valida                                                                                    |
-| Vocabulário restrito ao domínio religioso   | Corpus aberto de notícias do LIACC e caderno de frases do dia a dia                                                                 |
-| Voz sintética pronunciar errado             | Áudio oficial primeiro; teste com o falante; selo e botão "pronúncia estranha"                                                      |
-| Falta de informante                         | O módulo vira curso de leitura e compreensão; achar o falante antes da E9 e da E10                                                  |
-| Chave da API no computador                  | Só em `lab/.env.local`, no `.gitignore`; nunca em `src/`; `service_role` só no laboratório e no servidor, fora do Git, nunca no app |
-| Áudio difícil de alinhar ou reconhecer      | Cair para áudio por parágrafo e autoavaliação                                                                                       |
+| Risco                                          | Mitigação                                                                                                                      |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| IA errar emakhuwa com confiança                | Status decidido por código, botão de contestar, gabarito sempre oficial, prova fixa por lote, falante no ciclo                 |
+| IA inventar frases em emakhuwa                 | `CorpusGuard` rejeita qualquer frase fora do corpus                                                                            |
+| Uso do conteúdo fora dos termos                | Arquivos baixados pelo próprio André, corpus só na conta dele, sem raspagem, curso `owner_only`                                |
+| Mistura de variantes                           | Só emakhuwa central; o importador recusa arquivos de outra variante                                                            |
+| Tradução não literal confunde o alinhamento    | Alinhamento por frase, conferência de cobertura, pares abaixo de 0,7 fora dos exercícios                                       |
+| Ortografia inconsistente                       | Normalização e tolerância na correção; dicionário guarda variantes de grafia                                                   |
+| Tom não marcado na escrita                     | Treino perceptivo com áudio real; falante valida                                                                               |
+| Vocabulário restrito ao domínio religioso      | Corpus aberto de notícias do LIACC e caderno de frases do dia a dia                                                            |
+| Voz sintética pronunciar errado                | Áudio oficial primeiro; teste com o falante; selo e botão "pronúncia estranha"                                                 |
+| Falta de informante                            | O módulo vira curso de leitura e compreensão; achar o falante antes da E9 e da E10                                             |
+| Credenciais no computador                      | Laboratório sem chave da API (Agent SDK, ADR-006); `service_role` só no laboratório e no servidor, fora do Git, nunca no app   |
+| Limite da assinatura acabar no meio de um lote | Ponto de retomada por documento; pausa e retomada automáticas; ordem sob demanda garante que o material da semana sai primeiro |
+| Áudio difícil de alinhar ou reconhecer         | Cair para áudio por parágrafo e autoavaliação                                                                                  |
 
 **Expectativa honesta.** O FSI estima cerca de 900 horas de aula para proficiência profissional em suaíli, a língua banta mais próxima com estimativa oficial. Vinte minutos por dia dão cerca de 120 horas por ano. Em 12 meses, a meta realista é a da seção 1. Reuniões, vídeos e leitura extra (Trilha de Imersão) aceleram bastante.
 
@@ -689,15 +692,15 @@ Com a autorização do jw.org, o módulo ganha quatro capacidades por cima do pl
 
 Sempre gratuito, com aviso fixo de que o app é independente e não oficial.
 
-### 16.6 Custos (ordem de grandeza, Opus 5.5 na Batch API)
+### 16.6 Custos (ordem de grandeza, Opus 5.5)
 
-| Item                         | Estimativa                                                           |
-| ---------------------------- | -------------------------------------------------------------------- |
-| Processar o acervo           | Cerca de US$ 0,20 por documento; uns US$ 200 para os primeiros 1.000 |
-| Atualização semanal          | Poucos dólares por semana                                            |
-| Worker do coletor            | Cerca de US$ 5 a 20 por mês                                          |
-| IA ao vivo por aluno ativo   | Cerca de US$ 5 a 15 por mês                                          |
-| Voz do tutor por aluno ativo | Cerca de US$ 1 a 5 por mês                                           |
+| Item                                                                                                                                                                                                                                                                                                 | Estimativa                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| Processar o acervo Fase pessoal: sem custo extra, usa o limite da assinatura (o processamento leva dias ou semanas, em lotes). Versão para convidados: o worker usa a API (Opus 5.5) só para o que ainda não foi processado; o custo por documento é medido na fase pessoal antes de ligar o worker. |
+| Atualização semanal                                                                                                                                                                                                                                                                                  | Poucos dólares por semana   |
+| Worker do coletor                                                                                                                                                                                                                                                                                    | Cerca de US$ 5 a 20 por mês |
+| IA ao vivo por aluno ativo                                                                                                                                                                                                                                                                           | Cerca de US$ 5 a 15 por mês |
+| Voz do tutor por aluno ativo                                                                                                                                                                                                                                                                         | Cerca de US$ 1 a 5 por mês  |
 
 Com muitos alunos, a política de qualidade primeiro é revista com a medição dos primeiros meses.
 
