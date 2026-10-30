@@ -165,7 +165,7 @@ describe("cenario modo aviao", () => {
 
     const failed = await engine.sync(USER);
     expect(failed).toEqual({ pushed: 0, pulled: null, error: "modo aviao" });
-    const pending = await queue.pending(USER);
+    const pending = await queue.pending(USER).then((q) => q.operations);
     expect(pending.map((op) => op.operation.kind)).toEqual(["srsCards.upsert", "streak.save"]);
     expect(pending[0]).toMatchObject({ attempts: 1, lastError: "modo aviao" });
     expect((await remoteSrs.listAll(USER))[0]?.intervalDays).toBe(0);
@@ -183,7 +183,7 @@ describe("cenario modo aviao", () => {
     stop();
 
     expect(reports[1]).toMatchObject({ pushed: 2, error: null });
-    expect(await queue.pending(USER)).toEqual([]);
+    expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
     expect((await remoteSrs.listAll(USER))[0]?.intervalDays).toBe(6);
     expect(await remoteStreak.load(USER)).toEqual(studied);
     expect((await localSrs.listAll(USER))[0]?.intervalDays).toBe(6);

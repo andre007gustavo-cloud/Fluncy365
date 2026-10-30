@@ -77,7 +77,9 @@ describe("DexieSrsCardRepository", () => {
     await repo.upsertMany("u1", [card("a", -1), card("b", -1)]);
     await repo.upsertMany("u1", [card("a", 3)]);
 
-    const pending = await new OfflineQueue(db, new FixedClock(NOW)).pending("u1");
+    const pending = await new OfflineQueue(db, new FixedClock(NOW))
+      .pending("u1")
+      .then((q) => q.operations);
     expect(pending.map((op) => op.operation.kind)).toEqual(["srsCards.upsert", "srsCards.upsert"]);
     expect(pending[0]?.operation.payload).toMatchObject({ id: "a", intervalDays: 1 });
     expect((await db.srsCards.get("a"))?.updatedAt).toBe(NOW.getTime());

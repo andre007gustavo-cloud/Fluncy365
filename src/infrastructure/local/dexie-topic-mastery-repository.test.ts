@@ -36,7 +36,9 @@ describe("DexieTopicMasteryRepository", () => {
     expect(list).toHaveLength(2);
     expect(list.find((m) => m.topicId === "a")).toEqual(mastery("a"));
     expect(list.find((m) => m.topicId === "b")?.lastSeen).toBeNull();
-    const pending = await new OfflineQueue(db, new FixedClock(NOW)).pending("u1");
+    const pending = await new OfflineQueue(db, new FixedClock(NOW))
+      .pending("u1")
+      .then((q) => q.operations);
     expect(pending.map((op) => op.operation.kind)).toEqual([
       "topicMastery.upsert",
       "topicMastery.upsert",
@@ -48,7 +50,9 @@ describe("DexieTopicMasteryRepository", () => {
     await repo.upsert("u1", mastery("a", 0.9));
 
     expect((await repo.list("u1")).map((m) => m.accuracy)).toEqual([0.9]);
-    const pending = await new OfflineQueue(db, new FixedClock(NOW)).pending("u1");
+    const pending = await new OfflineQueue(db, new FixedClock(NOW))
+      .pending("u1")
+      .then((q) => q.operations);
     expect(pending).toHaveLength(1);
     expect(pending[0]?.operation.payload).toMatchObject({ accuracy: 0.9 });
   });

@@ -24,11 +24,17 @@ export interface QueuedOperation {
   revision: number;
 }
 
-export class InvalidQueuedOperationError extends Error {
-  constructor(id: number | undefined, reason: string) {
-    super(`Operacao ${id ?? "?"} da fila offline esta invalida: ${reason}`);
-    this.name = "InvalidQueuedOperationError";
-  }
+/** Linha da fila que nao passou na validacao; fica guardada para diagnostico, nunca e enviada. */
+export interface InvalidQueuedOperation {
+  id: number | undefined;
+  kind: string;
+  entityKey: string;
+  message: string;
+}
+
+export interface PendingQueue {
+  operations: QueuedOperation[];
+  invalid: InvalidQueuedOperation[];
 }
 
 const srsCardSchema = z.object({
@@ -158,10 +164,16 @@ export class OfflineQueue {
     });
   }
 
-  /** Lanca InvalidQueuedOperationError se algum registro nao passar na validacao. */
-  async pending(userId: string): Promise<QueuedOperation[]> {
+  /** Devolve as operacoes validas em ordem e separa as invalidas, sem apaga-las. */
+  async pending(userId: string): Promise<PendingQueue> {
     const rows = await this.db.outbox.where("userId").equals(userId).sortBy("id");
-    return rows.map(toQueuedOperation);
+    const queue: PendingQueue = { operations: [], invalid: [] };
+    for (const row of rows) {
+      const result = toQueuedOperation(row);
+      if ("message" in result) queue.invalid.push(result);
+      else queue.operations.push(result);
+    }
+    return queue;
   }
 
   /**
@@ -195,13 +207,19 @@ export class OfflineQueue {
   }
 }
 
-function toQueuedOperation(row: PendingOperation): QueuedOperation {
+function toQueuedOperation(row: PendingOperation): QueuedOperation | InvalidQueuedOperation {
+  const invalid = (reason: string): InvalidQueuedOperation => ({
+    id: row.id,
+    kind: row.kind,
+    entityKey: row.entityKey,
+    message: `Operacao ${row.id ?? "?"} da fila offline esta invalida: ${reason}`,
+  });
+
   const parsed = operationSchema.safeParse({ kind: row.kind, payload: row.payload });
   if (!parsed.success) {
-    const reason = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
-    throw new InvalidQueuedOperationError(row.id, reason);
+    return invalid(parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
   }
-  if (row.id === undefined) throw new InvalidQueuedOperationError(row.id, "sem id");
+  if (row.id === undefined) return invalid("sem id");
   return {
     id: row.id,
     userId: row.userId,

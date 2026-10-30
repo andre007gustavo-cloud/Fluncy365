@@ -42,7 +42,9 @@ describe("DexieStudentModelRepository", () => {
     await repo.save(model("u1"));
 
     expect(await repo.load("u1")).toEqual(model("u1"));
-    const pending = await new OfflineQueue(db, new FixedClock(NOW)).pending("u1");
+    const pending = await new OfflineQueue(db, new FixedClock(NOW))
+      .pending("u1")
+      .then((q) => q.operations);
     expect(pending.map((op) => op.operation.kind)).toEqual(["studentModel.save"]);
   });
 
@@ -50,7 +52,9 @@ describe("DexieStudentModelRepository", () => {
     await repo.save(model("u1", 100));
     await repo.save(model("u1", 200));
 
-    const pending = await new OfflineQueue(db, new FixedClock(NOW)).pending("u1");
+    const pending = await new OfflineQueue(db, new FixedClock(NOW))
+      .pending("u1")
+      .then((q) => q.operations);
     expect(pending).toHaveLength(1);
     expect(pending[0]?.operation.payload).toMatchObject({ vocabSize: 200 });
   });

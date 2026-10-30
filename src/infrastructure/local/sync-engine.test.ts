@@ -121,7 +121,7 @@ describe("SyncEngine", () => {
     const report = await engine.sync(USER);
 
     expect(report).toEqual({ pushed: 0, pulled: null, error: "sem rede" });
-    const pending = await queue.pending(USER);
+    const pending = await queue.pending(USER).then((q) => q.operations);
     expect(pending).toHaveLength(2);
     expect(pending[0]).toMatchObject({ attempts: 1, lastError: "sem rede" });
     expect(pending[1]).toMatchObject({ attempts: 0, lastError: null });
@@ -138,7 +138,7 @@ describe("SyncEngine", () => {
 
     expect(report.error).toBeNull();
     expect(report.pushed).toBe(1);
-    expect(await queue.pending(USER)).toEqual([]);
+    expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
     expect((await remoteSrs.listAll(USER)).map((c) => c.front)).toEqual(["v2"]);
   });
 
@@ -169,7 +169,7 @@ describe("SyncEngine", () => {
     const byId = new Map((await localSrs.listAll(USER)).map((c) => [c.id, c.front]));
     expect(byId.get("a")).toBe("local");
     expect(byId.get("b")).toBe("servidor");
-    expect(await queue.pending(USER)).toHaveLength(1);
+    expect(await queue.pending(USER).then((q) => q.operations)).toHaveLength(1);
   });
 
   it("sync concorrente roda uma vez so", async () => {
@@ -181,7 +181,7 @@ describe("SyncEngine", () => {
     expect(upsertCalls).toBe(1);
   });
 
-  it("reporta linha corrompida sem descartar nem apagar", async () => {
+  it("linha corrompida e reportada, nao apagada, e nao trava o resto", async () => {
     await db.outbox.add({
       userId: USER,
       kind: "srsCards.upsert",
@@ -193,12 +193,17 @@ describe("SyncEngine", () => {
       revision: 0,
       lastError: null,
     });
+    await localSrs.upsertMany(USER, [card("ok")]);
+    await remoteSrs.upsertMany(USER, [card("x", "servidor"), card("y", "servidor")]);
 
     const report = await engine.sync(USER);
 
     expect(report.error).toMatch(/invalida/);
-    expect(report.pulled).toBeNull();
+    expect(report.pushed).toBe(1);
+    expect(report.pulled).not.toBeNull();
     expect(await db.outbox.count()).toBe(1);
+    const ids = (await localSrs.listAll(USER)).map((c) => c.id).sort();
+    expect(ids).toEqual(["ok", "y"]);
   });
 
   it("para na primeira falha e preserva a ordem", async () => {
@@ -213,8 +218,8 @@ describe("SyncEngine", () => {
 
     const report = await engine.push(USER);
 
-    expect(report).toEqual({ pushed: 0, error: "sem rede" });
-    expect(await queue.pending(USER)).toHaveLength(2);
+    expect(report).toEqual({ pushed: 0, error: "sem rede", invalid: [] });
+    expect(await queue.pending(USER).then((q) => q.operations)).toHaveLength(2);
   });
 });
 
@@ -228,7 +233,7 @@ describe("SyncEngine - corrida entre leitura remota e gravacao local", () => {
     const byId = new Map((await localSrs.listAll(USER)).map((c) => [c.id, c.front]));
     expect(byId.get("a")).toBe("local");
     expect(byId.get("b")).toBe("servidor");
-    expect(await queue.pending(USER)).toHaveLength(1);
+    expect(await queue.pending(USER).then((q) => q.operations)).toHaveLength(1);
   });
 });
 
@@ -243,7 +248,7 @@ describe("SyncEngine - edicao durante o envio", () => {
     const first = await engine.push(USER);
 
     expect(first).toMatchObject({ pushed: 1, error: null });
-    const pending = await queue.pending(USER);
+    const pending = await queue.pending(USER).then((q) => q.operations);
     expect(pending).toHaveLength(1);
     expect(pending[0]?.operation.payload).toMatchObject({ front: "v2" });
 
@@ -251,7 +256,7 @@ describe("SyncEngine - edicao durante o envio", () => {
     expect((await localSrs.listAll(USER))[0]?.front).toBe("v2");
 
     await engine.push(USER);
-    expect(await queue.pending(USER)).toEqual([]);
+    expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
     expect((await remoteSrs.listAll(USER))[0]?.front).toBe("v2");
   });
 });

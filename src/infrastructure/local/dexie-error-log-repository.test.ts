@@ -44,7 +44,9 @@ describe("DexieErrorLogRepository", () => {
 
     const [only] = await repo.listRecent("u1", 10);
     expect(only).toEqual(error("tense", 2000, 2));
-    const pending = await new OfflineQueue(db, new FixedClock(NOW)).pending("u1");
+    const pending = await new OfflineQueue(db, new FixedClock(NOW))
+      .pending("u1")
+      .then((q) => q.operations);
     expect(pending).toHaveLength(1);
     expect(pending[0]?.operation.payload).toMatchObject({ count: 2 });
   });

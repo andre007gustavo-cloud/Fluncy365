@@ -33,7 +33,9 @@ describe("DexieStreakRepository", () => {
     await repo.save("u1", STREAK);
 
     expect(await repo.load("u1")).toEqual(STREAK);
-    const pending = await new OfflineQueue(db, new FixedClock(NOW)).pending("u1");
+    const pending = await new OfflineQueue(db, new FixedClock(NOW))
+      .pending("u1")
+      .then((q) => q.operations);
     expect(pending).toHaveLength(1);
     expect(pending[0]?.operation).toEqual({ kind: "streak.save", payload: STREAK });
     expect((await db.streaks.get("u1"))?.updatedAt).toBe(NOW.getTime());

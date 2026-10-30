@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { SrsCard } from "@/domain/entities/srs-card";
 import type { ClockPort } from "@/domain/ports/clock.port";
 import { LocalDatabase } from "./local-db";
-import { InvalidQueuedOperationError, OfflineQueue } from "./offline-queue";
+import { OfflineQueue } from "./offline-queue";
 
 let counter = 0;
 let db: LocalDatabase;
@@ -58,7 +58,7 @@ describe("OfflineQueue", () => {
     nowMs = 2000;
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1", "v2") });
 
-    const pending = await queue.pending("u1");
+    const pending = await queue.pending("u1").then((q) => q.operations);
     expect(pending).toHaveLength(1);
     expect(pending[0]?.operation.payload).toMatchObject({ front: "v2" });
     expect((await db.outbox.toArray())[0]?.updatedAt).toBe(2000);
@@ -69,7 +69,7 @@ describe("OfflineQueue", () => {
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("b") });
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("a", "novo") });
 
-    const ids = (await queue.pending("u1")).map((op) =>
+    const ids = (await queue.pending("u1").then((q) => q.operations)).map((op) =>
       op.operation.kind === "srsCards.upsert" ? op.operation.payload.id : "",
     );
     expect(ids).toEqual(["a", "b"]);
@@ -81,26 +81,26 @@ describe("OfflineQueue", () => {
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1") });
     await queue.enqueue("u2", { kind: "srsCards.upsert", payload: card("c1") });
 
-    expect(await queue.pending("u1")).toHaveLength(2);
-    expect(await queue.pending("u2")).toHaveLength(1);
-    expect(await queue.pending("u3")).toHaveLength(0);
+    expect(await queue.pending("u1").then((q) => q.operations)).toHaveLength(2);
+    expect(await queue.pending("u2").then((q) => q.operations)).toHaveLength(1);
+    expect(await queue.pending("u3").then((q) => q.operations)).toHaveLength(0);
   });
 
   it("ack remove a operacao", async () => {
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1") });
-    const [first] = await queue.pending("u1");
+    const [first] = await queue.pending("u1").then((q) => q.operations);
     await queue.ack(first!.id, first!.revision);
-    expect(await queue.pending("u1")).toHaveLength(0);
+    expect(await queue.pending("u1").then((q) => q.operations)).toHaveLength(0);
   });
 
   it("ack com revisao antiga mantem a linha editada depois do envio", async () => {
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1", "v1") });
-    const [sent] = await queue.pending("u1");
+    const [sent] = await queue.pending("u1").then((q) => q.operations);
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1", "v2") });
 
     expect(await queue.ack(sent!.id, sent!.revision)).toBe(false);
 
-    const [kept] = await queue.pending("u1");
+    const [kept] = await queue.pending("u1").then((q) => q.operations);
     expect(kept?.operation.payload).toMatchObject({ front: "v2" });
     expect(kept?.revision).toBe(sent!.revision + 1);
     expect(await queue.ack(kept!.id, kept!.revision)).toBe(true);
@@ -108,29 +108,37 @@ describe("OfflineQueue", () => {
 
   it("markFailed incrementa attempts e grava lastError; nova escrita zera", async () => {
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1") });
-    const [first] = await queue.pending("u1");
+    const [first] = await queue.pending("u1").then((q) => q.operations);
     await queue.markFailed(first!.id, "offline");
     await queue.markFailed(first!.id, "timeout");
 
-    const [failed] = await queue.pending("u1");
+    const [failed] = await queue.pending("u1").then((q) => q.operations);
     expect(failed).toMatchObject({ attempts: 2, lastError: "timeout" });
 
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1", "v2") });
-    expect((await queue.pending("u1"))[0]).toMatchObject({ attempts: 0, lastError: null });
+    expect((await queue.pending("u1").then((q) => q.operations))[0]).toMatchObject({
+      attempts: 0,
+      lastError: null,
+    });
   });
 
   it("markFailed em id inexistente nao falha", async () => {
     await expect(queue.markFailed(999, "x")).resolves.toBeUndefined();
   });
 
-  it("lanca erro claro quando o payload gravado e invalido", async () => {
+  it("separa linhas invalidas das validas sem apaga-las", async () => {
     await db.outbox.add(rawRow("srsCards.upsert", { id: "c1" }));
-    await expect(queue.pending("u1")).rejects.toBeInstanceOf(InvalidQueuedOperationError);
-  });
-
-  it("lanca erro para kind desconhecido", async () => {
     await db.outbox.add(rawRow("outra.coisa", {}));
-    await expect(queue.pending("u1")).rejects.toThrow(/invalida/);
+    await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("ok") });
+
+    const { operations, invalid } = await queue.pending("u1");
+
+    expect(operations).toHaveLength(1);
+    expect(invalid).toHaveLength(2);
+    expect(invalid[0]).toMatchObject({ kind: "srsCards.upsert", entityKey: "x" });
+    expect(invalid[0]?.message).toMatch(/invalida/);
+    expect(await db.outbox.count()).toBe(3);
+    expect(await queue.pendingKeys("u1")).toContain("outra.coisa:x");
   });
 
   it("participa de uma transacao externa e desfaz junto com ela", async () => {
@@ -140,6 +148,6 @@ describe("OfflineQueue", () => {
         throw new Error("falha");
       }),
     ).rejects.toThrow("falha");
-    expect(await queue.pending("u1")).toHaveLength(0);
+    expect(await queue.pending("u1").then((q) => q.operations)).toHaveLength(0);
   });
 });

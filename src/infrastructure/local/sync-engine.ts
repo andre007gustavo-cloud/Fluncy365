@@ -11,12 +11,7 @@ import type { DexieSrsCardRepository } from "./dexie-srs-card-repository";
 import type { DexieStreakRepository } from "./dexie-streak-repository";
 import type { DexieStudentModelRepository } from "./dexie-student-model-repository";
 import type { DexieTopicMasteryRepository } from "./dexie-topic-mastery-repository";
-import {
-  pendingKey,
-  type OfflineQueue,
-  type QueuedOperation,
-  type SyncOperation,
-} from "./offline-queue";
+import { pendingKey, type OfflineQueue, type SyncOperation } from "./offline-queue";
 
 export interface RemoteRepositories {
   srsCards: SrsCardRepositoryPort;
@@ -32,6 +27,13 @@ export interface LocalRepositories {
   streak: DexieStreakRepository;
   topicMastery: DexieTopicMasteryRepository;
   errorLog: DexieErrorLogRepository;
+}
+
+interface PushResult {
+  pushed: number;
+  /** Primeira falha de envio (a ordem estrita para a fila aqui). */
+  error: string | null;
+  invalid: string[];
 }
 
 export interface SyncReport {
@@ -71,14 +73,13 @@ export class SyncEngine {
     return run;
   }
 
-  /** Envia em ordem e para na primeira falha, preservando a ordem das edicoes. */
-  async push(userId: string): Promise<{ pushed: number; error: string | null }> {
-    let operations: QueuedOperation[];
-    try {
-      operations = await this.queue.pending(userId);
-    } catch (error) {
-      return { pushed: 0, error: messageOf(error) };
-    }
+  /**
+   * Envia em ordem e para na primeira falha, preservando a ordem das edicoes.
+   * Linhas invalidas da fila nao sao enviadas nem apagadas: voltam em `invalid`.
+   */
+  async push(userId: string): Promise<PushResult> {
+    const { operations, invalid } = await this.queue.pending(userId);
+    const invalidMessages = invalid.map((op) => op.message);
 
     let pushed = 0;
     for (const queued of operations) {
@@ -87,12 +88,12 @@ export class SyncEngine {
       } catch (error) {
         const message = messageOf(error);
         await this.queue.markFailed(queued.id, message);
-        return { pushed, error: message };
+        return { pushed, error: message, invalid: invalidMessages };
       }
       await this.queue.ack(queued.id, queued.revision);
       pushed += 1;
     }
-    return { pushed, error: null };
+    return { pushed, error: null, invalid: invalidMessages };
   }
 
   /**
@@ -142,13 +143,18 @@ export class SyncEngine {
   }
 
   private async runSync(userId: string): Promise<SyncReport> {
-    const { pushed, error } = await this.push(userId);
-    if (error !== null) return { pushed, pulled: null, error };
+    const { pushed, error, invalid } = await this.push(userId);
+    if (error !== null) return { pushed, pulled: null, error: [error, ...invalid].join(" | ") };
 
+    const invalidError = invalid.length > 0 ? invalid.join(" | ") : null;
     try {
-      return { pushed, pulled: await this.pull(userId), error: null };
+      return { pushed, pulled: await this.pull(userId), error: invalidError };
     } catch (pullError) {
-      return { pushed, pulled: null, error: messageOf(pullError) };
+      return {
+        pushed,
+        pulled: null,
+        error: [messageOf(pullError), ...invalid].join(" | "),
+      };
     }
   }
 
