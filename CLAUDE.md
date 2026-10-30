@@ -49,9 +49,13 @@ docs/                documentação
 - Para qualquer tarefa do módulo, leia também `docs/PLANEJAMENTO-EMAKHUWA.md` e `docs/ADR-004-modulo-emakhuwa.md`.
 - Nenhuma string em emakhuwa chega à interface sem passar pelo `CorpusGuard`; o status do léxico é decidido pelo `EvidenceScorer`, nunca pela IA.
 - Exceção à regra do proxy de IA: os scripts em `lab/` (laboratório local) podem chamar a API da Anthropic direto, com `ANTHROPIC_API_KEY` só em `lab/.env.local` (no `.gitignore`). Código em `src/` continua chamando a IA só por `/api/tutor`.
-- O laboratório autentica no Supabase como o usuário (sessão do André), nunca com a chave `service_role`.
+- A chave `service_role` do Supabase fica só no laboratório (`lab/.env.local`) e no servidor (worker), nunca no app, e sempre fora do Git (ADR-005).
 - Conteúdo do jw.org nunca entra no repositório nem em tabelas compartilhadas: só nas tabelas do curso `vmw`, com RLS por usuário, e no bucket privado.
 - Modelo de IA: Opus 5.5 (ver `docs/ADENDO-v1.3.md`).
+- A coleta automática, a biblioteca compartilhada, a distribuição e outros idiomas seguem o `docs/ADR-005-acervo-autorizado.md` e valem só para os itens marcados como "sim" em `docs/autorizacao-jw.md`.
+- O coletor baixa só arquivos públicos (EPUB, MP3, MP4, legendas), um por vez, com pausa, identificado, e para em caso de erro. Nunca varre páginas HTML.
+- A chave da Anthropic e a `service_role` do worker ficam só nas variáveis de ambiente do worker; o app chama a IA só por `/api/tutor`.
+- Toda tela com conteúdo do jw.org mostra a atribuição, o link oficial e o aviso de app independente e não oficial.
 
 ## Princípios SOLID no projeto
 

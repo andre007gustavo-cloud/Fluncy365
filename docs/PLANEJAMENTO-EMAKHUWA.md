@@ -2,7 +2,8 @@
 
 ### Curso pessoal de emakhuwa (macua) dentro do Fluente365 · 20 minutos por dia
 
-> **Versão do documento:** 1.0 · 30/10/2026 · **Status:** aprovado pelo André
+> **Versão do documento:** 1.1 · 30/10/2026 · **Status:** aprovado pelo André
+> **v1.1:** versão com acervo autorizado pelo jw.org (ver seção 16 e ADR-005)
 > **Local no repositório:** `docs/PLANEJAMENTO-EMAKHUWA.md` (substitui a v0.1)
 > **Relação com o plano principal:** complementa o [`PLANEJAMENTO.md`](./PLANEJAMENTO.md) (v1.3). Tudo que não estiver dito aqui segue o plano principal: arquitetura, SOLID, testes, CI e definição de pronto.
 > **Decisões registradas em:** [`ADR-002`](./ADR-002-multi-idioma.md) (multi-idioma), [`ADR-004`](./ADR-004-modulo-emakhuwa.md) (este módulo) e [`ADENDO-v1.3`](./ADENDO-v1.3.md) (política de IA e voz).
@@ -40,7 +41,8 @@
 13. Roadmap — fases E0 a E12
 14. Custos, riscos e expectativas
 15. Decisões
-16. Fontes
+16. Versão com acervo autorizado
+17. Fontes
 
 ---
 
@@ -56,7 +58,7 @@ O motivo é simples: o emakhuwa tem pouquíssimo material didático e a IA não 
 2. **Validação por gabarito oficial.** Todo exercício tem resposta tirada do texto oficial, ou é corrigido em português, onde a IA é confiável.
 3. **Ciclo humano.** Um falante fluente, cerca de 30 minutos por semana, confirma o que a IA não consegue resolver sozinha.
 
-**O que o módulo entrega:** um segundo curso dentro do Fluente365, separado do inglês, com sessão de 20 minutos, SRS, streak e avatar próprios, e o tutor animado. O conteúdo do jw.org fica só na conta do André, sem distribuir (seção 3).
+**O que o módulo entrega:** um segundo curso dentro do Fluente365, separado do inglês, com sessão de 20 minutos, SRS, streak e avatar próprios, e o tutor animado. Com a autorização do jw.org, o acervo é coletado automaticamente, processado uma vez e servido a usuários convidados (seções 3 e 16).
 
 **Meta honesta para 12 meses a 20 min/dia:**
 
@@ -101,22 +103,22 @@ O app oficial JW Language foi descontinuado em abril de 2026; o jw.org explicou 
 
 ---
 
-## 3. Regras do jogo: termos de uso do jw.org
+## 3. Regras do jogo: autorização do jw.org
 
-Os [Termos de Uso](https://www.jw.org/en/terms-of-use) permitem ver, baixar e imprimir o conteúdo para uso pessoal e não comercial. Proíbem distribuí-lo como parte de um app (inclusive subir a um servidor usado por um app), criar ferramentas de raspagem para distribuição e acessar o site por meio diferente do oferecido.
+O jw.org aprovou, em 30/10/2026, a proposta de uso do acervo para este módulo. A resposta escrita e os itens aprovados estão em [`autorizacao-jw.md`](./autorizacao-jw.md); as decisões de arquitetura, no [`ADR-005`](./ADR-005-acervo-autorizado.md).
 
-**Regras de projeto (decididas em 29 e 30/10)**
+**Regras de projeto**
 
-1. **Modo pessoal.** O corpus fica na conta do André no Supabase, visível só para ele (RLS e curso `owner_only`), e sincroniza entre os computadores e o celular dele. Nada é publicado nem compartilhado com outras pessoas.
-2. **Acervo inteiro, por arquivos oficiais.** EPUB, MP3 e MP4 em português e emakhuwa, quantos forem necessários, baixados pelos arquivos que o próprio site oferece.
-3. **Sem robô varrendo páginas.** Baixam-se os arquivos oferecidos; não se raspa o HTML do site.
-4. **Laboratório no computador.** O processamento pesado (importar, alinhar, cortar áudio, transcrever vídeo, gerar voz) roda no computador do André e grava o resultado na conta dele no Supabase (seção 12.1).
-5. **IA lendo o acervo.** O agente lê e trabalha sobre o acervo pelas chamadas à API, como parte do estudo pessoal. Cada chamada leva todo o contexto que a tarefa pede. O log de custo guarda tokens, não texto.
-6. **Família, se quiser:** cada pessoa baixa e processa os próprios arquivos. O app nunca repassa o acervo de um usuário para outro.
+1. **Só o que foi autorizado.** Cada parte (coleta, biblioteca no servidor, distribuição, outros idiomas) liga apenas se o item correspondente estiver marcado como "sim" em `autorizacao-jw.md`. Condições impostas pela organização prevalecem sobre este plano.
+2. **Só arquivos públicos.** EPUB, MP3, MP4 e legendas oferecidos ao público. Nada de varrer páginas HTML.
+3. **Bom vizinho.** Um download por vez, com pausa, janela noturna, cada arquivo baixado uma vez só, coletor identificado com nome do app e contato, parada imediata se o site responder com erro ou pedir para parar.
+4. **Texto fiel.** O texto oficial nunca é alterado; o agente explica só a língua, nunca doutrina.
+5. **Atribuição.** Toda tela com conteúdo traz o título da publicação, o aviso de direitos e o link para a página oficial.
+6. **Não comercial e controlado.** Gratuito, sem anúncios, sem venda de dados; só usuários logados e convidados; nada público na internet.
+7. **Retirada a pedido.** Qualquer publicação, idioma ou o acervo inteiro sai em até 7 dias se a organização pedir.
+8. **Transparência.** Lista do que foi coletado e relatório de uso disponíveis para a organização.
 
-Nesse formato, o uso é estudo pessoal e não comercial. O envio de trechos à API e a guarda do corpus no Supabase, visível só para o André, foram avaliados e aceitos por ele como parte desse uso pessoal. É uma leitura cuidadosa dos termos, não parecer jurídico.
-
-Conteúdo de licença aberta (dados do LIACC, notas da SIL) pode ser embutido no app com atribuição.
+Enquanto a importação manual do v1.0 existir, ela continua funcionando como reserva, caso o coletor pare.
 
 ---
 
@@ -438,24 +440,11 @@ Um falante fluente de emakhuwa, cerca de 30 minutos por semana, é o que transfo
 
 O módulo entra como um segundo curso do Fluente365: reaproveita SRS, Session Player, avaliadores, streak, avatar, tutor e PWA, e acrescenta um domínio de corpus paralelo.
 
-### 12.1 Duas partes, ambas só do André
+### 12.1 Três partes: coletor e processamento no servidor, laboratório, app
 
-- **Laboratório local (`lab/`, no computador).** Monta e alimenta a base do agente:
-  - importa EPUB, MP3, MP4 e legendas;
-  - alinha e analisa;
-  - transcreve vídeos e gera as vozes candidatas;
-  - roda a prova fixa.
-
-  Em TypeScript (Node), para reaproveitar os serviços puros de `src/domain/corpus/`. Usa Python só no que exige (áudio, MMS, alinhamento forçado). Grava o resultado na conta do André no Supabase (tabelas e Storage privado).
-
-- **App de estudo (Fluente365).** No celular e no computador, lê o corpus da conta do André e guarda uma cópia no Dexie para estudar offline. O agente professor do app roda pelo proxy `/api/tutor`.
-
-**Regras do laboratório (ADR-004):**
-
-- chama a API da Anthropic direto do computador, com a chave só em `lab/.env.local`, no `.gitignore`;
-- código em `src/` continua chamando a IA só pelo proxy;
-- autentica no Supabase como o próprio André (sessão de usuário), nunca com a chave `service_role`, para o RLS valer também ali;
-- registra tokens e custo em `admin_costs` com `course_id = 'vmw'`, sem texto.
+- **Coletor e processamento no servidor (worker).** Um serviço agendado com fila de tarefas, fora da Vercel por causa do tempo de execução. Monta o catálogo, baixa os arquivos, pareia os idiomas pelo número do documento, alinha, analisa, corta áudio e roda a prova fixa. A chave da Anthropic fica só nas variáveis de ambiente do worker. Escreve na biblioteca com a chave `service_role`, que nunca sai do servidor.
+- **Laboratório local (`lab/`).** Continua para o que é pesado demais ou experimental: voz sintética (MMS), alinhamento forçado de áudio, testes de reconhecimento de voz e o eventual ajuste fino de um modelo de tradução. Regras do ADR-004 mantidas, com uma mudança: a gravação no corpus usa a `service_role`, guardada só em `lab/.env.local`, fora do Git e nunca no app.
+- **App de estudo (Fluente365).** Lê a biblioteca do curso `vmw`, guarda no Dexie só a parte que o aluno está estudando e chama a IA só pelo proxy `/api/tutor`.
 
 ### 12.2 Camadas
 
@@ -621,20 +610,20 @@ Decisão do André: seguir, ajustar os prompts ou reduzir o papel da IA (nesse c
 - **Laboratório:** cerca de US$ 1 a 3 por lote importado.
 - **Voz:** cerca de US$ 1 a 5 por mês.
 
-| Risco                                       | Mitigação                                                                                                      |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| IA errar emakhuwa com confiança             | Status decidido por código, botão de contestar, gabarito sempre oficial, prova fixa por lote, falante no ciclo |
-| IA inventar frases em emakhuwa              | `CorpusGuard` rejeita qualquer frase fora do corpus                                                            |
-| Uso do conteúdo fora dos termos             | Arquivos baixados pelo próprio André, corpus só na conta dele, sem raspagem, curso `owner_only`                |
-| Mistura de variantes                        | Só emakhuwa central; o importador recusa arquivos de outra variante                                            |
-| Tradução não literal confunde o alinhamento | Alinhamento por frase, conferência de cobertura, pares abaixo de 0,7 fora dos exercícios                       |
-| Ortografia inconsistente                    | Normalização e tolerância na correção; dicionário guarda variantes de grafia                                   |
-| Tom não marcado na escrita                  | Treino perceptivo com áudio real; falante valida                                                               |
-| Vocabulário restrito ao domínio religioso   | Corpus aberto de notícias do LIACC e caderno de frases do dia a dia                                            |
-| Voz sintética pronunciar errado             | Áudio oficial primeiro; teste com o falante; selo e botão "pronúncia estranha"                                 |
-| Falta de informante                         | O módulo vira curso de leitura e compreensão; achar o falante antes da E9 e da E10                             |
-| Chave da API no computador                  | Só em `lab/.env.local`, no `.gitignore`; nunca em `src/`; laboratório sem `service_role`                       |
-| Áudio difícil de alinhar ou reconhecer      | Cair para áudio por parágrafo e autoavaliação                                                                  |
+| Risco                                       | Mitigação                                                                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| IA errar emakhuwa com confiança             | Status decidido por código, botão de contestar, gabarito sempre oficial, prova fixa por lote, falante no ciclo                      |
+| IA inventar frases em emakhuwa              | `CorpusGuard` rejeita qualquer frase fora do corpus                                                                                 |
+| Uso do conteúdo fora dos termos             | Arquivos baixados pelo próprio André, corpus só na conta dele, sem raspagem, curso `owner_only`                                     |
+| Mistura de variantes                        | Só emakhuwa central; o importador recusa arquivos de outra variante                                                                 |
+| Tradução não literal confunde o alinhamento | Alinhamento por frase, conferência de cobertura, pares abaixo de 0,7 fora dos exercícios                                            |
+| Ortografia inconsistente                    | Normalização e tolerância na correção; dicionário guarda variantes de grafia                                                        |
+| Tom não marcado na escrita                  | Treino perceptivo com áudio real; falante valida                                                                                    |
+| Vocabulário restrito ao domínio religioso   | Corpus aberto de notícias do LIACC e caderno de frases do dia a dia                                                                 |
+| Voz sintética pronunciar errado             | Áudio oficial primeiro; teste com o falante; selo e botão "pronúncia estranha"                                                      |
+| Falta de informante                         | O módulo vira curso de leitura e compreensão; achar o falante antes da E9 e da E10                                                  |
+| Chave da API no computador                  | Só em `lab/.env.local`, no `.gitignore`; nunca em `src/`; `service_role` só no laboratório e no servidor, fora do Git, nunca no app |
+| Áudio difícil de alinhar ou reconhecer      | Cair para áudio por parágrafo e autoavaliação                                                                                       |
 
 **Expectativa honesta.** O FSI estima cerca de 900 horas de aula para proficiência profissional em suaíli, a língua banta mais próxima com estimativa oficial. Vinte minutos por dia dão cerca de 120 horas por ano. Em 12 meses, a meta realista é a da seção 1. Reuniões, vídeos e leitura extra (Trilha de Imersão) aceleram bastante.
 
@@ -660,7 +649,75 @@ Doze decisões tomadas pelo André em 29 e 30/10/2026; falta achar o falante.
 
 ---
 
-## 16. Fontes
+## 16. Versão com acervo autorizado
+
+Com a autorização do jw.org, o módulo ganha quatro capacidades por cima do plano v1.0, sem mudar a pedagogia. Decisões de arquitetura no ADR-005.
+
+### 16.1 Coleta automática
+
+1. **Catálogo:** publicações, revistas e vídeos disponíveis em emakhuwa central e em português do Brasil, pelo mesmo serviço de links que o botão "Baixar" do site usa, ou pelo acesso que a organização indicar.
+2. **Pareamento:** pelo número do documento, igual nos dois idiomas; pares sem correspondente ficam de fora.
+3. **Download:** só arquivos públicos, com as regras de bom vizinho da seção 3.
+4. **Vídeos:** MP4 e legendas dos dois idiomas, alinhados pelo tempo.
+5. **Atualização semanal**, com prioridade para o material da reunião da semana.
+6. **Prioridade de processamento:** textos diários, folhetos, cânticos, artigos de estudo e vídeos curtos primeiro; livros longos depois.
+
+### 16.2 Biblioteca compartilhada
+
+- **Comum a todos:** documentos, frases alinhadas, mídia cortada, transcrições, dicionário vivo e padrões gramaticais.
+- **De cada aluno:** cartões SRS, domínio, erros, sessões, contestações e respostas do falante.
+- Contestações de vários alunos somam e aceleram a fila do falante; uma confirmação vale para todos, com registro de quem confirmou.
+- O primeiro aluno que precisa de um texto paga o processamento; os seguintes o recebem pronto.
+
+### 16.3 Buscador e aulas automáticas
+
+- Busca por tema (em português, no título e nas transcrições dos dois idiomas), duração, tipo e semana da reunião.
+- Cada resultado mostra a cobertura lexical do aluno e a busca ordena pelos que estão entre 85% e 95%.
+- Ao escolher um vídeo ou texto, o app monta a aula: palavras novas com evidências, "assistir e contar", cartões com o trecho de áudio e exercícios de lacuna, ditado e tradução reversa.
+
+### 16.4 Agente com o acervo completo
+
+- Mais evidência desde o início; índice semântico (pgvector) para achar o melhor exemplo paralelo.
+- Ajuste fino opcional de um modelo aberto pequeno de tradução PT ↔ emakhuwa, como sugestor; `CorpusGuard` e falante continuam valendo.
+- Prova fixa ampliada para cerca de 300 itens.
+
+### 16.5 Distribuição
+
+1. Família e amigos, por convite.
+2. Quem aprende emakhuwa para servir em congregações de língua emakhuwa.
+3. Outros idiomas, um por vez, cada um com seu falante (novo `course_id`, mesmo motor).
+
+Sempre gratuito, com aviso fixo de que o app é independente e não oficial.
+
+### 16.6 Custos (ordem de grandeza, Opus 5.5 na Batch API)
+
+| Item                         | Estimativa                                                           |
+| ---------------------------- | -------------------------------------------------------------------- |
+| Processar o acervo           | Cerca de US$ 0,20 por documento; uns US$ 200 para os primeiros 1.000 |
+| Atualização semanal          | Poucos dólares por semana                                            |
+| Worker do coletor            | Cerca de US$ 5 a 20 por mês                                          |
+| IA ao vivo por aluno ativo   | Cerca de US$ 5 a 15 por mês                                          |
+| Voz do tutor por aluno ativo | Cerca de US$ 1 a 5 por mês                                           |
+
+Com muitos alunos, a política de qualidade primeiro é revista com a medição dos primeiros meses.
+
+### 16.7 Riscos adicionais
+
+| Risco                                             | Mitigação                                                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| A organização restringir ou retirar a autorização | Retirada em até 7 dias (`takedown_requests`); cada parte desliga sozinha; a importação manual continua |
+| O site mudar a forma de oferecer os arquivos      | Coletor por adaptadores; importação manual como reserva                                                |
+| Erros da IA vistos por muita gente                | Contestações somadas, falantes em rede, `CorpusGuard`                                                  |
+| Explicações confundidas com ensino da organização | Agente restrito à língua; aviso de app independente                                                    |
+| Custo crescer com muitos alunos                   | Medição por aluno e por serviço; revisão da política                                                   |
+
+### 16.8 Fases
+
+As fases A0 a A5 do `fases.json` executam esta seção, por cima das fases E0 a E12. As fases E1, E2 e E4 já nascem prontas para a biblioteca compartilhada (sem migração depois).
+
+---
+
+## 17. Fontes
 
 - [jw.org — Termos de Uso](https://www.jw.org/en/terms-of-use)
 - [jw.org — JW Language descontinuado](https://www.jw.org/en/online-help/jw-language/)
