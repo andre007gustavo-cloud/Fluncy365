@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { StudentError, TopicMastery } from "@/domain/entities/student";
 import {
   studentErrorFromRow,
   studentErrorToRow,
   topicMasteryFromRow,
   topicMasteryToRow,
+  SupabaseStreakRepository,
+  type Supabase,
 } from "./supabase-repositories";
 
 const MASTERY: TopicMastery = {
@@ -57,5 +59,31 @@ describe("mapeadores de error_log", () => {
     const row = studentErrorToRow("u1", ERROR);
     expect(() => studentErrorFromRow({ ...row, skill: "dancing" })).toThrow();
     expect(() => studentErrorFromRow({ ...row, count: 1.5 })).toThrow();
+  });
+});
+
+describe("SupabaseStreakRepository.save", () => {
+  const streak = { current: 2, best: 4, shieldsLeft: 1, lastDay: "2026-03-10" };
+
+  it("faz upsert pela chave (user_id, course_id), criando a linha se faltar", async () => {
+    const upsert = vi.fn().mockResolvedValue({ error: null });
+    const client = { from: vi.fn().mockReturnValue({ upsert }) } as unknown as Supabase;
+
+    await new SupabaseStreakRepository(client).save("u1", streak);
+
+    expect(client.from).toHaveBeenCalledWith("gamification");
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: "u1", course_id: "en", streak }),
+      { onConflict: "user_id,course_id" },
+    );
+  });
+
+  it("lanca erro com mensagem util quando o Supabase falha", async () => {
+    const upsert = vi.fn().mockResolvedValue({ error: { message: "rls" } });
+    const client = { from: () => ({ upsert }) } as unknown as Supabase;
+
+    await expect(new SupabaseStreakRepository(client).save("u1", streak)).rejects.toThrow(
+      /save gamification.*rls/,
+    );
   });
 });

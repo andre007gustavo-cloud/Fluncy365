@@ -268,11 +268,17 @@ export class SupabaseStreakRepository implements StreakRepositoryPort {
   }
 
   async save(userId: string, streak: Streak): Promise<void> {
-    const { error } = await this.supabase
-      .from("gamification")
-      .update({ streak: streakToJson(streak), updated_at: new Date().toISOString() })
-      .eq("user_id", userId)
-      .eq("course_id", DEFAULT_COURSE_ID);
+    // upsert (e nao update): update em 0 linhas nao gera erro e o ack da fila
+    // descartaria o streak em silencio. As demais colunas tem default.
+    const { error } = await this.supabase.from("gamification").upsert(
+      {
+        user_id: userId,
+        course_id: DEFAULT_COURSE_ID,
+        streak: streakToJson(streak),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,course_id" },
+    );
 
     if (error) fail("save gamification", error);
   }
