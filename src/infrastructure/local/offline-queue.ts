@@ -106,6 +106,10 @@ export function entityKeyOf(operation: SyncOperation): string {
   }
 }
 
+export function pendingKey(kind: string, entityKey: string): string {
+  return `${kind}:${entityKey}`;
+}
+
 export class OfflineQueue {
   constructor(
     private readonly db: LocalDatabase,
@@ -155,6 +159,15 @@ export class OfflineQueue {
   async pending(userId: string): Promise<QueuedOperation[]> {
     const rows = await this.db.outbox.where("userId").equals(userId).sortBy("id");
     return rows.map(toQueuedOperation);
+  }
+
+  /**
+   * Chaves `kind:entityKey` pendentes, sem validar o payload: o pull so precisa saber
+   * quais entidades tem edicao local nao enviada, mesmo que a linha esteja corrompida.
+   */
+  async pendingKeys(userId: string): Promise<Set<string>> {
+    const rows = await this.db.outbox.where("userId").equals(userId).toArray();
+    return new Set(rows.map((row) => pendingKey(row.kind, row.entityKey)));
   }
 
   async ack(id: number): Promise<void> {
