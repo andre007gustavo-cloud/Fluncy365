@@ -44,6 +44,15 @@ docs/                documentação
 
 **Regra de dependência:** `domain` não importa NADA externo (nem React, nem Supabase, nem Next). `application` importa apenas `domain`. `infrastructure` implementa os ports do `domain`. `presentation` usa casos de uso via hooks/DI — nunca acessa Supabase/Anthropic diretamente.
 
+## Módulo emakhuwa (curso vmw)
+
+- Para qualquer tarefa do módulo, leia também `docs/PLANEJAMENTO-EMAKHUWA.md` e `docs/ADR-004-modulo-emakhuwa.md`.
+- Nenhuma string em emakhuwa chega à interface sem passar pelo `CorpusGuard`; o status do léxico é decidido pelo `EvidenceScorer`, nunca pela IA.
+- Exceção à regra do proxy de IA: os scripts em `lab/` (laboratório local) podem chamar a API da Anthropic direto, com `ANTHROPIC_API_KEY` só em `lab/.env.local` (no `.gitignore`). Código em `src/` continua chamando a IA só por `/api/tutor`.
+- O laboratório autentica no Supabase como o usuário (sessão do André), nunca com a chave `service_role`.
+- Conteúdo do jw.org nunca entra no repositório nem em tabelas compartilhadas: só nas tabelas do curso `vmw`, com RLS por usuário, e no bucket privado.
+- Modelo de IA: Opus 5.5 (ver `docs/ADENDO-v1.3.md`).
+
 ## Princípios SOLID no projeto
 
 - **S**: regra de negócio só em `domain`/`application`; componentes de UI apenas exibem e delegam.
