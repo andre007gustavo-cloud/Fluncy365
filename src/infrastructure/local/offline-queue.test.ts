@@ -106,6 +106,18 @@ describe("OfflineQueue", () => {
     expect(await queue.ack(kept!.id, kept!.revision)).toBe(true);
   });
 
+  it("trata linha legada sem revision como revisao 0", async () => {
+    const { revision: _omit, ...legacy } = rawRow("srsCards.upsert", card("c1"));
+    await db.outbox.add({ ...legacy, entityKey: "c1" });
+
+    await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1", "v2") });
+    const [op] = await queue.pending("u1").then((q) => q.operations);
+    expect(op?.revision).toBe(1);
+
+    expect(await queue.ack(op!.id, 0)).toBe(false);
+    expect(await queue.ack(op!.id, 1)).toBe(true);
+  });
+
   it("markFailed incrementa attempts e grava lastError; nova escrita zera", async () => {
     await queue.enqueue("u1", { kind: "srsCards.upsert", payload: card("c1") });
     const [first] = await queue.pending("u1").then((q) => q.operations);

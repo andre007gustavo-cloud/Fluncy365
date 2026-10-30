@@ -11,7 +11,12 @@ import type { DexieSrsCardRepository } from "./dexie-srs-card-repository";
 import type { DexieStreakRepository } from "./dexie-streak-repository";
 import type { DexieStudentModelRepository } from "./dexie-student-model-repository";
 import type { DexieTopicMasteryRepository } from "./dexie-topic-mastery-repository";
-import { pendingKey, type OfflineQueue, type SyncOperation } from "./offline-queue";
+import {
+  pendingKey,
+  type OfflineQueue,
+  type PendingQueue,
+  type SyncOperation,
+} from "./offline-queue";
 
 export interface RemoteRepositories {
   srsCards: SrsCardRepositoryPort;
@@ -37,7 +42,7 @@ interface PushResult {
 }
 
 export interface SyncReport {
-  /** Operacoes enviadas e removidas da fila. */
+  /** Operacoes enviadas ao servidor (somadas entre as rodadas); uma editada durante o envio segue na fila. */
   pushed: number;
   /** Registros do servidor gravados localmente; null quando o pull nao rodou. */
   pulled: number | null;
@@ -90,9 +95,12 @@ export class SyncEngine {
 
   private async syncUntilSettled(userId: string, execution: Execution): Promise<SyncReport> {
     let report: SyncReport;
+    let pushedBefore = 0;
     do {
       execution.rerun = false;
       report = await this.runSync(userId);
+      report = { ...report, pushed: report.pushed + pushedBefore };
+      pushedBefore = report.pushed;
     } while (execution.rerun);
     return report;
   }
@@ -102,7 +110,13 @@ export class SyncEngine {
    * Linhas invalidas da fila nao sao enviadas nem apagadas: voltam em `invalid`.
    */
   async push(userId: string): Promise<PushResult> {
-    const { operations, invalid } = await this.queue.pending(userId);
+    let pending: PendingQueue;
+    try {
+      pending = await this.queue.pending(userId);
+    } catch (error) {
+      return { pushed: 0, error: messageOf(error), invalid: [] };
+    }
+    const { operations, invalid } = pending;
     const invalidMessages = invalid.map((op) => op.message);
 
     let pushed = 0;

@@ -1,5 +1,5 @@
 import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SrsCard } from "@/domain/entities/srs-card";
 import type { StudentError, TopicMastery } from "@/domain/entities/student";
 import type {
@@ -278,5 +278,30 @@ describe("SyncEngine - reconexao durante um sync em curso", () => {
     expect(report.error).toBeNull();
     expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
     expect((await remoteSrs.listAll(USER))[0]?.front).toBe("v1");
+  });
+});
+
+describe("SyncEngine - robustez do relatorio", () => {
+  it("falha de leitura da fila vira erro no relatorio em vez de rejeitar", async () => {
+    vi.spyOn(queue, "pending").mockRejectedValue(new Error("indexeddb indisponivel"));
+
+    const report = await engine.sync(USER);
+
+    expect(report).toEqual({ pushed: 0, pulled: null, error: "indexeddb indisponivel" });
+    vi.restoreAllMocks();
+  });
+
+  it("soma o pushed das rodadas quando ha nova rodada", async () => {
+    await localSrs.upsertMany(USER, [card("a")]);
+    duringUpsert = async () => {
+      duringUpsert = null;
+      void engine.sync(USER);
+      await localSrs.upsertMany(USER, [card("b")]);
+    };
+
+    const report = await engine.sync(USER);
+
+    expect(report.pushed).toBe(2);
+    expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
   });
 });

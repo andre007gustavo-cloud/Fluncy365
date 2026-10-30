@@ -90,7 +90,8 @@ export interface PendingOperation {
   attempts: number;
   lastError: string | null;
   /** Incrementada a cada coalescencia; permite ao ack nao apagar uma edicao feita durante o envio. */
-  revision: number;
+  /** Ausente em linhas gravadas antes do campo existir; leia como 0. */
+  revision?: number;
 }
 
 export class LocalDatabase extends Dexie {

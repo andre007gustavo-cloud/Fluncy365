@@ -146,7 +146,7 @@ export class OfflineQueue {
           updatedAt,
           attempts: 0,
           lastError: null,
-          revision: existing.revision + 1,
+          revision: (existing.revision ?? 0) + 1,
         });
         return;
       }
@@ -192,7 +192,7 @@ export class OfflineQueue {
   async ack(id: number, sentRevision: number): Promise<boolean> {
     return this.db.transaction("rw", this.db.outbox, async () => {
       const row = await this.db.outbox.get(id);
-      if (!row || row.revision !== sentRevision) return false;
+      if (!row || (row.revision ?? 0) !== sentRevision) return false;
       await this.db.outbox.delete(id);
       return true;
     });
@@ -226,6 +226,6 @@ function toQueuedOperation(row: PendingOperation): QueuedOperation | InvalidQueu
     operation: parsed.data as SyncOperation,
     attempts: row.attempts,
     lastError: row.lastError,
-    revision: row.revision,
+    revision: row.revision ?? 0,
   };
 }
