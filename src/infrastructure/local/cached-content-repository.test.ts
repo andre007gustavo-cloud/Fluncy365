@@ -82,24 +82,24 @@ afterEach(() => db.close());
 
 describe("CachedContentRepository", () => {
   it("licao lida online continua disponivel com o remoto falhando", async () => {
-    await repo.findLesson("u1", 1);
+    await repo.findLesson("en", "u1", 1);
     remote.down = true;
 
-    expect(await repo.findLesson("u1", 1)).toEqual(LESSON);
+    expect(await repo.findLesson("en", "u1", 1)).toEqual(LESSON);
   });
 
   it("unidade lida online continua disponivel offline", async () => {
-    await repo.findUnit("u1");
+    await repo.findUnit("en", "u1");
     remote.down = true;
 
-    expect(await repo.findUnit("u1")).toEqual(UNIT);
+    expect(await repo.findUnit("en", "u1")).toEqual(UNIT);
   });
 
   it("sem cache e com o remoto falhando, relanca o erro original", async () => {
     remote.down = true;
 
-    await expect(repo.findLesson("u1", 1)).rejects.toThrow("sem rede");
-    await expect(repo.findUnit("u1")).rejects.toThrow("sem rede");
+    await expect(repo.findLesson("en", "u1", 1)).rejects.toThrow("sem rede");
+    await expect(repo.findUnit("en", "u1")).rejects.toThrow("sem rede");
   });
 
   it("cache invalido nao e usado: relanca o erro original", async () => {
@@ -112,28 +112,28 @@ describe("CachedContentRepository", () => {
     });
     remote.down = true;
 
-    await expect(repo.findLesson("u1", 1)).rejects.toThrow("sem rede");
+    await expect(repo.findLesson("en", "u1", 1)).rejects.toThrow("sem rede");
   });
 
   it("licao inexistente no remoto devolve null e nao cria cache", async () => {
     remote.lesson = null;
 
-    expect(await repo.findLesson("u1", 1)).toBeNull();
+    expect(await repo.findLesson("en", "u1", 1)).toBeNull();
     expect(await db.lessons.count()).toBe(0);
   });
 
   it("nova versao da mesma licao substitui a anterior no cache", async () => {
-    await repo.findLesson("u1", 1);
+    await repo.findLesson("en", "u1", 1);
     remote.lesson = { ...LESSON, id: "u1-d1-v2", version: 2 };
-    await repo.findLesson("u1", 1);
+    await repo.findLesson("en", "u1", 1);
     remote.down = true;
 
-    expect((await repo.findLesson("u1", 1))?.version).toBe(2);
+    expect((await repo.findLesson("en", "u1", 1))?.version).toBe(2);
     expect(await db.lessons.count()).toBe(1);
   });
 
   it("saveLesson repassa o erro do remoto", async () => {
-    await expect(repo.saveLesson(LESSON)).rejects.toThrow("service_role");
+    await expect(repo.saveLesson("en", LESSON)).rejects.toThrow("service_role");
   });
 
   it("falha ao gravar o cache nao derruba a leitura remota bem-sucedida", async () => {
@@ -141,23 +141,28 @@ describe("CachedContentRepository", () => {
     vi.spyOn(db.lessons, "put").mockRejectedValue(new Error("quota"));
     vi.spyOn(db.units, "put").mockRejectedValue(new Error("quota"));
 
-    expect(await repo.findLesson("u1", 1)).toEqual(LESSON);
-    expect(await repo.findUnit("u1")).toEqual(UNIT);
+    expect(await repo.findLesson("en", "u1", 1)).toEqual(LESSON);
+    expect(await repo.findUnit("en", "u1")).toEqual(UNIT);
     expect(consoleError).toHaveBeenCalledTimes(2);
     vi.restoreAllMocks();
   });
 
   it("remoto sem a licao ou a unidade apaga a entrada do cache", async () => {
-    await repo.findLesson("u1", 1);
-    await repo.findUnit("u1");
+    await repo.findLesson("en", "u1", 1);
+    await repo.findUnit("en", "u1");
     remote.lesson = null;
     remote.unit = null;
 
-    expect(await repo.findLesson("u1", 1)).toBeNull();
-    expect(await repo.findUnit("u1")).toBeNull();
+    expect(await repo.findLesson("en", "u1", 1)).toBeNull();
+    expect(await repo.findUnit("en", "u1")).toBeNull();
     remote.down = true;
 
-    await expect(repo.findLesson("u1", 1)).rejects.toThrow("sem rede");
-    await expect(repo.findUnit("u1")).rejects.toThrow("sem rede");
+    await expect(repo.findLesson("en", "u1", 1)).rejects.toThrow("sem rede");
+    await expect(repo.findUnit("en", "u1")).rejects.toThrow("sem rede");
+  });
+
+  it("recusa curso sem armazenamento offline", async () => {
+    await expect(repo.findUnit("vmw", "u1")).rejects.toThrow(/offline.*"vmw"/);
+    await expect(repo.findLesson("vmw", "u1", 1)).rejects.toThrow(/offline/);
   });
 });

@@ -47,37 +47,37 @@ const STUDENT_TABLES: StudentTable[] = [
   {
     table: "student_models",
     ownerColumn: "user_id",
-    row: { vocab_size: 10 },
+    row: { course_id: "en", vocab_size: 10 },
     change: { vocab_size: 99 },
   },
   {
     table: "topic_mastery",
     ownerColumn: "user_id",
-    row: { topic_id: "t1" },
+    row: { course_id: "en", topic_id: "t1" },
     change: { attempts: 99 },
   },
   {
     table: "srs_cards",
     ownerColumn: "user_id",
-    row: { front: "a", back: "b" },
+    row: { course_id: "en", front: "a", back: "b" },
     change: { back: "hack" },
   },
   {
     table: "error_log",
     ownerColumn: "user_id",
-    row: { code: "e1", skill: "writing" },
+    row: { course_id: "en", code: "e1", skill: "writing" },
     change: { count: 99 },
   },
   {
     table: "study_sessions",
     ownerColumn: "user_id",
-    row: { day: "2000-01-01" },
+    row: { course_id: "en", day: "2000-01-01" },
     change: { xp: 99 },
   },
   {
     table: "gamification",
     ownerColumn: "user_id",
-    row: { xp_total: 5 },
+    row: { course_id: "en", xp_total: 5 },
     change: { xp_total: 99 },
   },
 ];
@@ -170,7 +170,9 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
         minutes: 1,
         course_id: ownerOnlyCourseId,
       }),
-      admin.from("content_units").insert({ id: unitId, month: 1, week: 1, level: 1 }),
+      admin
+        .from("content_units")
+        .insert({ id: unitId, month: 1, week: 1, level: 1, course_id: "en" }),
       admin.from("content_jw_refs").insert({
         id: jwRefId,
         url: "https://example.com",
@@ -178,6 +180,7 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
         type: "article",
         level: 1,
         minutes: 1,
+        course_id: "en",
       }),
       admin.from("admin_costs").insert({ day: costDay, course_id: ownerOnlyCourseId }),
     ];
@@ -186,7 +189,7 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
     }
     const lesson = await admin
       .from("content_lessons")
-      .insert({ id: lessonId, unit_id: unitId, day_index: 1 });
+      .insert({ id: lessonId, unit_id: unitId, day_index: 1, course_id: "en" });
     if (lesson.error) throw new Error(`seed lição: ${lesson.error.message}`);
     const hiddenLesson = await admin.from("content_lessons").insert({
       id: hiddenLessonId,
@@ -270,6 +273,21 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
     );
   });
 
+  describe("course_id sem default", () => {
+    it.each<[string, Record<string, unknown>]>([
+      ["srs_cards", { id: randomUUID(), front: "a", back: "b" }],
+      ["content_units", { id: `nc-${suffix}`, month: 1, week: 1, level: 1 }],
+    ])(
+      "insert sem course_id em %s falha com not-null (23502)",
+      async (table, row) => {
+        const payload = table === "srs_cards" ? { ...row, user_id: userIdA } : row;
+        const { error } = await admin.from(table).insert(payload);
+        expect(error?.code).toBe("23502");
+      },
+      NETWORK_TIMEOUT_MS,
+    );
+  });
+
   describe("conteúdo, cursos e custos", () => {
     it.each(PUBLIC_READ_TABLES)(
       "anônimo não lê %s",
@@ -342,8 +360,8 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
     );
 
     it.each<[string, Record<string, unknown>]>([
-      ["content_units", { id: `x-${suffix}`, month: 1, week: 1, level: 1 }],
-      ["content_lessons", { id: `x-${suffix}`, unit_id: unitId, day_index: 2 }],
+      ["content_units", { id: `x-${suffix}`, month: 1, week: 1, level: 1, course_id: "en" }],
+      ["content_lessons", { id: `x-${suffix}`, unit_id: unitId, day_index: 2, course_id: "en" }],
       [
         "content_jw_refs",
         {
@@ -353,6 +371,7 @@ describe.skipIf(!parsedEnv.success)("RLS: isolamento entre usuários", () => {
           type: "article",
           level: 1,
           minutes: 1,
+          course_id: "en",
         },
       ],
       [

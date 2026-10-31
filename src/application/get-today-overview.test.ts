@@ -11,6 +11,7 @@ import {
 import { GetTodayOverview } from "./get-today-overview";
 
 const USER = "user-1";
+const COURSE = "en";
 
 function card(id: string, dueAt: string): SrsCard {
   return {
@@ -40,9 +41,11 @@ function build(cards: readonly SrsCard[], withModel: boolean) {
   const clock = new FixedClock(new Date("2026-09-08T12:00:00.000Z"));
   const useCase = new GetTodayOverview({
     clock,
-    srsCards: new InMemorySrsCardRepository({ [USER]: cards }),
+    srsCards: new InMemorySrsCardRepository({ [COURSE]: { [USER]: cards } }),
     streaks: new InMemoryStreakRepository(),
-    studentModels: new InMemoryStudentModelRepository(withModel ? { [USER]: model() } : {}),
+    studentModels: new InMemoryStudentModelRepository(
+      withModel ? { [COURSE]: { [USER]: model() } } : {},
+    ),
   });
   return { useCase, clock };
 }
@@ -58,7 +61,7 @@ describe("GetTodayOverview", () => {
       true,
     );
 
-    const overview = await useCase.execute(USER);
+    const overview = await useCase.execute(USER, COURSE);
 
     expect(overview.dueToday).toBe(2);
     expect(overview.extraQueue).toBe(0);
@@ -71,7 +74,7 @@ describe("GetTodayOverview", () => {
     );
     const { useCase } = build(cards, true);
 
-    const overview = await useCase.execute(USER);
+    const overview = await useCase.execute(USER, COURSE);
 
     expect(overview.dueToday).toBe(20);
     expect(overview.extraQueue).toBe(6);
@@ -80,7 +83,7 @@ describe("GetTodayOverview", () => {
   it("funciona para aluno novo, sem modelo salvo", async () => {
     const { useCase } = build([], false);
 
-    const overview = await useCase.execute(USER);
+    const overview = await useCase.execute(USER, COURSE);
 
     expect(overview.levels).toBeNull();
     expect(overview.vocabSize).toBe(0);
@@ -90,8 +93,18 @@ describe("GetTodayOverview", () => {
   it("avancar o relogio faz cartoes futuros vencerem", async () => {
     const { useCase, clock } = build([card("a", "2026-09-15T00:00:00.000Z")], true);
 
-    expect((await useCase.execute(USER)).dueToday).toBe(0);
+    expect((await useCase.execute(USER, COURSE)).dueToday).toBe(0);
     clock.advanceDays(10);
-    expect((await useCase.execute(USER)).dueToday).toBe(1);
+    expect((await useCase.execute(USER, COURSE)).dueToday).toBe(1);
+  });
+
+  it("le somente os dados do curso informado", async () => {
+    const { useCase } = build([card("a", "2026-09-07T00:00:00.000Z")], true);
+
+    const overview = await useCase.execute(USER, "vmw");
+
+    expect(overview.dueToday).toBe(0);
+    expect(overview.levels).toBeNull();
+    expect(overview.vocabSize).toBe(0);
   });
 });

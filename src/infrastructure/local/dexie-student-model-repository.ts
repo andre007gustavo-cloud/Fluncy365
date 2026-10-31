@@ -1,7 +1,9 @@
 import type { StudentModel } from "@/domain/entities/student";
+import type { CourseId } from "@/domain/value-objects/course-id";
 import type { ClockPort } from "@/domain/ports/clock.port";
 import type { StudentModelRepositoryPort } from "@/domain/ports/student-repository.port";
 import type { LocalDatabase, LocalStudentModel } from "./local-db";
+import { assertOfflineCourse } from "./offline-course";
 import { OfflineQueue } from "./offline-queue";
 
 export class DexieStudentModelRepository implements StudentModelRepositoryPort {
@@ -14,12 +16,14 @@ export class DexieStudentModelRepository implements StudentModelRepositoryPort {
     this.queue = new OfflineQueue(db, clock);
   }
 
-  async load(userId: string): Promise<StudentModel | null> {
+  async load(userId: string, courseId: CourseId): Promise<StudentModel | null> {
+    assertOfflineCourse(courseId);
     const row = await this.db.studentModels.get(userId);
     return row ? toModel(row) : null;
   }
 
-  async save(model: StudentModel): Promise<void> {
+  async save(model: StudentModel, courseId: CourseId): Promise<void> {
+    assertOfflineCourse(courseId);
     await this.db.transaction("rw", this.db.studentModels, this.db.outbox, async () => {
       await this.db.studentModels.put(toRow(model));
       await this.queue.enqueue(model.userId, { kind: "studentModel.save", payload: model });

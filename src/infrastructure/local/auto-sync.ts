@@ -1,7 +1,8 @@
+import type { CourseId } from "@/domain/value-objects/course-id";
 import type { SyncReport } from "./sync-engine";
 
 export interface Syncer {
-  sync(userId: string): Promise<SyncReport>;
+  sync(userId: string, courseId: CourseId): Promise<SyncReport>;
 }
 
 function logSyncFailure(error: unknown): void {
@@ -15,13 +16,14 @@ function logSyncFailure(error: unknown): void {
 export function startAutoSync(
   engine: Syncer,
   userId: string,
+  courseId: CourseId,
   target: EventTarget,
   onReport?: (report: SyncReport) => void,
   onError: (error: unknown) => void = logSyncFailure,
 ): () => void {
   const run = () => {
     engine
-      .sync(userId)
+      .sync(userId, courseId)
       .then((report) => onReport?.(report))
       .catch(onError);
   };

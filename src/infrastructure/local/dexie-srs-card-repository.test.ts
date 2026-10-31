@@ -40,42 +40,42 @@ afterEach(() => {
 
 describe("DexieSrsCardRepository", () => {
   it("listDue devolve so vencidos (inclusive agora), do mais antigo ao mais novo", async () => {
-    await repo.upsertMany("u1", [
+    await repo.upsertMany("u1", "en", [
       card("future", 1),
       card("now", 0),
       card("old", -5),
       card("recent", -1),
     ]);
 
-    const due = await repo.listDue("u1", NOW, 10);
+    const due = await repo.listDue("u1", "en", NOW, 10);
 
     expect(due.map((c) => c.id)).toEqual(["old", "recent", "now"]);
   });
 
   it("listDue respeita o limite e limite zero devolve vazio", async () => {
-    await repo.upsertMany("u1", [card("a", -3), card("b", -2), card("c", -1)]);
+    await repo.upsertMany("u1", "en", [card("a", -3), card("b", -2), card("c", -1)]);
 
-    expect((await repo.listDue("u1", NOW, 2)).map((c) => c.id)).toEqual(["a", "b"]);
-    expect(await repo.listDue("u1", NOW, 0)).toEqual([]);
+    expect((await repo.listDue("u1", "en", NOW, 2)).map((c) => c.id)).toEqual(["a", "b"]);
+    expect(await repo.listDue("u1", "en", NOW, 0)).toEqual([]);
   });
 
   it("preserva as datas como Date na leitura", async () => {
-    await repo.upsertMany("u1", [card("a", -1)]);
-    const [read] = await repo.listAll("u1");
+    await repo.upsertMany("u1", "en", [card("a", -1)]);
+    const [read] = await repo.listAll("u1", "en");
     expect(read).toEqual(card("a", -1));
   });
 
   it("isola os cartoes por usuario", async () => {
-    await repo.upsertMany("u1", [card("a", -1)]);
-    await repo.upsertMany("u2", [card("b", -1)]);
+    await repo.upsertMany("u1", "en", [card("a", -1)]);
+    await repo.upsertMany("u2", "en", [card("b", -1)]);
 
-    expect((await repo.listAll("u1")).map((c) => c.id)).toEqual(["a"]);
-    expect((await repo.listDue("u2", NOW, 10)).map((c) => c.id)).toEqual(["b"]);
+    expect((await repo.listAll("u1", "en")).map((c) => c.id)).toEqual(["a"]);
+    expect((await repo.listDue("u2", "en", NOW, 10)).map((c) => c.id)).toEqual(["b"]);
   });
 
   it("upsertMany enfileira uma operacao por cartao, ja coalescida", async () => {
-    await repo.upsertMany("u1", [card("a", -1), card("b", -1)]);
-    await repo.upsertMany("u1", [card("a", 3)]);
+    await repo.upsertMany("u1", "en", [card("a", -1), card("b", -1)]);
+    await repo.upsertMany("u1", "en", [card("a", 3)]);
 
     const pending = await new OfflineQueue(db, new FixedClock(NOW))
       .pending("u1")
@@ -88,7 +88,7 @@ describe("DexieSrsCardRepository", () => {
   it("desfaz a gravacao local quando o enqueue falha", async () => {
     vi.spyOn(OfflineQueue.prototype, "enqueue").mockRejectedValueOnce(new Error("falha"));
 
-    await expect(repo.upsertMany("u1", [card("a", -1)])).rejects.toThrow("falha");
+    await expect(repo.upsertMany("u1", "en", [card("a", -1)])).rejects.toThrow("falha");
 
     expect(await db.srsCards.count()).toBe(0);
     expect(await db.outbox.count()).toBe(0);
@@ -97,7 +97,13 @@ describe("DexieSrsCardRepository", () => {
   it("applyRemote grava sem enfileirar", async () => {
     await repo.applyRemote("u1", [card("a", -1)]);
 
-    expect(await repo.listAll("u1")).toHaveLength(1);
+    expect(await repo.listAll("u1", "en")).toHaveLength(1);
+    expect(await db.outbox.count()).toBe(0);
+  });
+
+  it("recusa curso sem armazenamento offline com mensagem clara", async () => {
+    await expect(repo.listAll("u1", "vmw")).rejects.toThrow(/offline.*"vmw"/);
+    await expect(repo.upsertMany("u1", "vmw", [card("a", -1)])).rejects.toThrow(/offline/);
     expect(await db.outbox.count()).toBe(0);
   });
 });

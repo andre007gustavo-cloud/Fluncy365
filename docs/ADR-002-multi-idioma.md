@@ -55,8 +55,15 @@ teste de integração a usa para garantir que toda tabela nova nasce com RLS.
 O trigger `handle_new_user` e os repositórios atuais não informam `course_id`. Com o default, tudo
 segue funcionando sem alterar os ports do domínio, o que está fora do escopo da F0.2.
 
-**Dívida:** passar `courseId` pelos ports e casos de uso e remover o default. Fazer na F1.4 ou na E1,
-o que vier primeiro.
+**Dívida (parte do código paga na E1, tarefa 1):** o `courseId` agora passa pelos ports, casos de
+uso e repositórios (Supabase, fakes e Dexie); `ENGLISH_COURSE_ID` só aparece no ponto de entrada.
+Os repositórios locais (offline) recusam, com erro claro, qualquer curso diferente de `'en'`; o
+offline do `vmw` fica para fase futura.
+
+**Dívida do default paga (E1, tarefa 6):** a migration `20261030140000_drop_course_id_default.sql`
+remove o `default 'en'` das 10 tabelas e recria `handle_new_user` informando `'en'` explicitamente
+(ele dependia do default). Agora um insert sem `course_id` falha com 23502; o teste de integração
+cobre esse caso e passa `course_id` em todos os inserts.
 
 ### 6. Teste de isolamento
 
@@ -71,7 +78,7 @@ dívida de teste de RLS do ADR-001.
 | #   | Item                                              | Situação                                                                                    |
 | --- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | 1   | Tabela `courses` com flags de capacidade          | **Feito agora (F0.2)**                                                                      |
-| 2   | Coluna `course_id` nas tabelas de aluno/conteúdo  | **Feito agora (F0.2)**, com default `'en'` (ver dívida acima)                               |
+| 2   | Coluna `course_id` nas tabelas de aluno/conteúdo  | **Feito (F0.2)**; default `'en'` removido na E1 (ver acima)                                 |
 | 3   | Planner de sessão lê as flags do curso            | **Adiado para E4** (as flags já existem no banco; o `GenerateDailySession` não as lê ainda) |
 | 4   | `SpeechPort` com verificação de capacidade        | **Adiado para E1**                                                                          |
 | 5   | Feature flag `module_vmw` só para a conta do dono | **Adiado para E1** (a visibilidade `owner_only` em `courses` já é a base no banco)          |
@@ -83,8 +90,7 @@ As tabelas de corpus e léxico da seção 10 do planejamento emakhuwa (`corpus_d
 
 - Adicionar um idioma passa a ser inserir uma linha em `courses` e conteúdo com o novo `course_id`.
 - Dados atuais migram sem perda: tudo vira `course_id = 'en'`.
-- Enquanto o default existir, um bug que esqueça o `courseId` grava silenciosamente em `'en'`. Por
-  isso a dívida deve ser paga antes de ativar o primeiro curso não inglês para usuários.
+- Sem o default, um bug que esqueça o `courseId` falha alto (23502) em vez de gravar em `'en'`.
 
 ## Policies de visibilidade de curso e dívidas
 

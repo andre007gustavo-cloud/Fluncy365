@@ -7,6 +7,7 @@ import type {
   StreakRepositoryPort,
   StudentModelRepositoryPort,
 } from "@/domain/ports/student-repository.port";
+import type { CourseId } from "@/domain/value-objects/course-id";
 import { isDue } from "@/domain/entities/srs-card";
 
 /** Relogio fixo: e o que torna o SRS testavel sem esperar dias passarem. */
@@ -26,29 +27,49 @@ export class FixedClock implements ClockPort {
   }
 }
 
-export class InMemorySrsCardRepository implements SrsCardRepositoryPort {
-  private readonly byUser = new Map<string, SrsCard[]>();
+/** Semente dos fakes: curso -> usuario -> dado. */
+export type CourseSeed<T> = Readonly<Record<CourseId, Readonly<Record<string, T>>>>;
 
-  constructor(seed: Readonly<Record<string, readonly SrsCard[]>> = {}) {
-    for (const [userId, cards] of Object.entries(seed)) {
-      this.byUser.set(userId, [...cards]);
+function scopeKey(userId: string, courseId: CourseId): string {
+  return `${courseId}:${userId}`;
+}
+
+function seedMap<T>(seed: CourseSeed<T>): Map<string, T> {
+  const entries: [string, T][] = [];
+  for (const [courseId, byUser] of Object.entries(seed)) {
+    for (const [userId, value] of Object.entries(byUser)) {
+      entries.push([scopeKey(userId, courseId), value]);
     }
   }
+  return new Map(entries);
+}
 
-  async listAll(userId: string): Promise<readonly SrsCard[]> {
-    return [...(this.byUser.get(userId) ?? [])];
+export class InMemorySrsCardRepository implements SrsCardRepositoryPort {
+  private readonly byScope: Map<string, readonly SrsCard[]>;
+
+  constructor(seed: CourseSeed<readonly SrsCard[]> = {}) {
+    this.byScope = seedMap(seed);
   }
 
-  async listDue(userId: string, now: Date, limit: number): Promise<readonly SrsCard[]> {
-    const all = await this.listAll(userId);
+  async listAll(userId: string, courseId: CourseId): Promise<readonly SrsCard[]> {
+    return [...(this.byScope.get(scopeKey(userId, courseId)) ?? [])];
+  }
+
+  async listDue(
+    userId: string,
+    courseId: CourseId,
+    now: Date,
+    limit: number,
+  ): Promise<readonly SrsCard[]> {
+    const all = await this.listAll(userId, courseId);
     return all.filter((card) => isDue(card, now)).slice(0, Math.max(0, limit));
   }
 
-  async upsertMany(userId: string, cards: readonly SrsCard[]): Promise<void> {
-    const current = this.byUser.get(userId) ?? [];
-    const merged = new Map(current.map((card) => [card.id, card]));
+  async upsertMany(userId: string, courseId: CourseId, cards: readonly SrsCard[]): Promise<void> {
+    const key = scopeKey(userId, courseId);
+    const merged = new Map((this.byScope.get(key) ?? []).map((card) => [card.id, card]));
     for (const card of cards) merged.set(card.id, card);
-    this.byUser.set(userId, [...merged.values()]);
+    this.byScope.set(key, [...merged.values()]);
   }
 }
 
@@ -60,33 +81,33 @@ export const EMPTY_STREAK: Streak = {
 };
 
 export class InMemoryStreakRepository implements StreakRepositoryPort {
-  private readonly byUser = new Map<string, Streak>();
+  private readonly byScope: Map<string, Streak>;
 
-  constructor(seed: Readonly<Record<string, Streak>> = {}) {
-    for (const [userId, streak] of Object.entries(seed)) this.byUser.set(userId, streak);
+  constructor(seed: CourseSeed<Streak> = {}) {
+    this.byScope = seedMap(seed);
   }
 
-  async load(userId: string): Promise<Streak> {
-    return this.byUser.get(userId) ?? EMPTY_STREAK;
+  async load(userId: string, courseId: CourseId): Promise<Streak> {
+    return this.byScope.get(scopeKey(userId, courseId)) ?? EMPTY_STREAK;
   }
 
-  async save(userId: string, streak: Streak): Promise<void> {
-    this.byUser.set(userId, streak);
+  async save(userId: string, courseId: CourseId, streak: Streak): Promise<void> {
+    this.byScope.set(scopeKey(userId, courseId), streak);
   }
 }
 
 export class InMemoryStudentModelRepository implements StudentModelRepositoryPort {
-  private readonly byUser = new Map<string, StudentModel>();
+  private readonly byScope: Map<string, StudentModel>;
 
-  constructor(seed: Readonly<Record<string, StudentModel>> = {}) {
-    for (const [userId, model] of Object.entries(seed)) this.byUser.set(userId, model);
+  constructor(seed: CourseSeed<StudentModel> = {}) {
+    this.byScope = seedMap(seed);
   }
 
-  async load(userId: string): Promise<StudentModel | null> {
-    return this.byUser.get(userId) ?? null;
+  async load(userId: string, courseId: CourseId): Promise<StudentModel | null> {
+    return this.byScope.get(scopeKey(userId, courseId)) ?? null;
   }
 
-  async save(model: StudentModel): Promise<void> {
-    this.byUser.set(model.userId, model);
+  async save(model: StudentModel, courseId: CourseId): Promise<void> {
+    this.byScope.set(scopeKey(model.userId, courseId), model);
   }
 }

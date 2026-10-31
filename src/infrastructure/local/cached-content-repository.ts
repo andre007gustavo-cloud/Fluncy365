@@ -1,8 +1,10 @@
 import type { JwRef, Lesson, UnitSpec } from "@/domain/entities/lesson";
+import type { CourseId } from "@/domain/value-objects/course-id";
 import type { ClockPort } from "@/domain/ports/clock.port";
 import type { ContentRepositoryPort } from "@/domain/ports/content-repository.port";
 import { lessonSchema, unitSchema } from "../supabase/content-schemas";
 import type { LocalDatabase } from "./local-db";
+import { assertOfflineCourse } from "./offline-course";
 
 /**
  * Remoto primeiro; cada leitura bem-sucedida vira cache no Dexie. Se o remoto
@@ -17,10 +19,11 @@ export class CachedContentRepository implements ContentRepositoryPort {
     private readonly clock: ClockPort,
   ) {}
 
-  async findUnit(unitId: string): Promise<UnitSpec | null> {
+  async findUnit(courseId: CourseId, unitId: string): Promise<UnitSpec | null> {
+    assertOfflineCourse(courseId);
     let unit: UnitSpec | null;
     try {
-      unit = await this.remote.findUnit(unitId);
+      unit = await this.remote.findUnit(courseId, unitId);
     } catch (error) {
       const cached = await this.db.units.get(unitId);
       const parsed = unitSchema.safeParse(cached?.data);
@@ -42,10 +45,11 @@ export class CachedContentRepository implements ContentRepositoryPort {
     return unit;
   }
 
-  async findLesson(unitId: string, dayIndex: number): Promise<Lesson | null> {
+  async findLesson(courseId: CourseId, unitId: string, dayIndex: number): Promise<Lesson | null> {
+    assertOfflineCourse(courseId);
     let lesson: Lesson | null;
     try {
-      lesson = await this.remote.findLesson(unitId, dayIndex);
+      lesson = await this.remote.findLesson(courseId, unitId, dayIndex);
     } catch (error) {
       const cached = await this.db.lessons
         .where("[unitId+dayIndex]")
@@ -66,12 +70,12 @@ export class CachedContentRepository implements ContentRepositoryPort {
     return lesson;
   }
 
-  saveLesson(lesson: Lesson): Promise<void> {
-    return this.remote.saveLesson(lesson);
+  saveLesson(courseId: CourseId, lesson: Lesson): Promise<void> {
+    return this.remote.saveLesson(courseId, lesson);
   }
 
-  listJwRefs(unitId: string): Promise<readonly JwRef[]> {
-    return this.remote.listJwRefs(unitId);
+  listJwRefs(courseId: CourseId, unitId: string): Promise<readonly JwRef[]> {
+    return this.remote.listJwRefs(courseId, unitId);
   }
 
   /** Falha ao gravar o cache nao pode derrubar uma leitura remota que deu certo. */

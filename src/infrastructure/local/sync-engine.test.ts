@@ -23,13 +23,14 @@ import { SyncEngine, type RemoteRepositories } from "./sync-engine";
 
 const NOW = new Date("2026-03-10T12:00:00Z");
 const USER = "u1";
+const COURSE = "en";
 
 class InMemoryTopicMastery implements TopicMasteryRepositoryPort {
   readonly items = new Map<string, TopicMastery>();
   async list(): Promise<readonly TopicMastery[]> {
     return [...this.items.values()];
   }
-  async upsert(_userId: string, mastery: TopicMastery): Promise<void> {
+  async upsert(_userId: string, _courseId: string, mastery: TopicMastery): Promise<void> {
     this.items.set(mastery.topicId, mastery);
   }
 }
@@ -39,7 +40,7 @@ class InMemoryErrorLog implements ErrorLogRepositoryPort {
   async listRecent(): Promise<readonly StudentError[]> {
     return [...this.items.values()];
   }
-  async record(_userId: string, error: StudentError): Promise<void> {
+  async record(_userId: string, _courseId: string, error: StudentError): Promise<void> {
     this.items.set(error.code, error);
   }
 }
@@ -84,17 +85,17 @@ beforeEach(() => {
 
   remote = {
     srsCards: {
-      listAll: async (userId) => {
-        const snapshot = await remoteSrs.listAll(userId);
+      listAll: async (userId, courseId) => {
+        const snapshot = await remoteSrs.listAll(userId, courseId);
         await duringRemoteRead?.();
         return snapshot;
       },
-      listDue: (userId, now, limit) => remoteSrs.listDue(userId, now, limit),
-      upsertMany: async (userId, cards) => {
+      listDue: (userId, courseId, now, limit) => remoteSrs.listDue(userId, courseId, now, limit),
+      upsertMany: async (userId, courseId, cards) => {
         upsertCalls += 1;
         if (remoteDown) throw new Error("sem rede");
         await duringUpsert?.();
-        await remoteSrs.upsertMany(userId, cards);
+        await remoteSrs.upsertMany(userId, courseId, cards);
       },
     },
     studentModel: new InMemoryStudentModelRepository(),
@@ -115,10 +116,10 @@ afterEach(() => db.close());
 
 describe("SyncEngine", () => {
   it("remoto falhando: fila intacta e relatorio com erro", async () => {
-    await localSrs.upsertMany(USER, [card("a"), card("b")]);
+    await localSrs.upsertMany(USER, COURSE, [card("a"), card("b")]);
     remoteDown = true;
 
-    const report = await engine.sync(USER);
+    const report = await engine.sync(USER, COURSE);
 
     expect(report).toEqual({ pushed: 0, pulled: null, error: "sem rede" });
     const pending = await queue.pending(USER).then((q) => q.operations);
@@ -128,23 +129,23 @@ describe("SyncEngine", () => {
   });
 
   it("remoto volta: fila zera e o servidor recebe o valor mais recente", async () => {
-    await localSrs.upsertMany(USER, [card("a", "v1")]);
-    await localSrs.upsertMany(USER, [card("a", "v2")]);
+    await localSrs.upsertMany(USER, COURSE, [card("a", "v1")]);
+    await localSrs.upsertMany(USER, COURSE, [card("a", "v2")]);
     remoteDown = true;
-    await engine.sync(USER);
+    await engine.sync(USER, COURSE);
     remoteDown = false;
 
-    const report = await engine.sync(USER);
+    const report = await engine.sync(USER, COURSE);
 
     expect(report.error).toBeNull();
     expect(report.pushed).toBe(1);
     expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
-    expect((await remoteSrs.listAll(USER)).map((c) => c.front)).toEqual(["v2"]);
+    expect((await remoteSrs.listAll(USER, COURSE)).map((c) => c.front)).toEqual(["v2"]);
   });
 
   it("pull aplica dados do servidor quando nao ha pendencia", async () => {
-    await remoteSrs.upsertMany(USER, [card("srv", "do servidor")]);
-    await remote.topicMastery.upsert(USER, {
+    await remoteSrs.upsertMany(USER, COURSE, [card("srv", "do servidor")]);
+    await remote.topicMastery.upsert(USER, COURSE, {
       topicId: "t1",
       accuracy: 1,
       attempts: 2,
@@ -153,29 +154,32 @@ describe("SyncEngine", () => {
       status: "mastered",
     });
 
-    const report = await engine.sync(USER);
+    const report = await engine.sync(USER, COURSE);
 
     expect(report.pulled).toBe(2);
-    expect((await localSrs.listAll(USER)).map((c) => c.front)).toEqual(["do servidor"]);
+    expect((await localSrs.listAll(USER, COURSE)).map((c) => c.front)).toEqual(["do servidor"]);
     expect(await db.outbox.count()).toBe(0);
   });
 
   it("pull nao apaga edicao local pendente", async () => {
-    await remoteSrs.upsertMany(USER, [card("a", "servidor"), card("b", "servidor")]);
-    await localSrs.upsertMany(USER, [card("a", "local")]);
+    await remoteSrs.upsertMany(USER, COURSE, [card("a", "servidor"), card("b", "servidor")]);
+    await localSrs.upsertMany(USER, COURSE, [card("a", "local")]);
 
-    await engine.pull(USER);
+    await engine.pull(USER, COURSE);
 
-    const byId = new Map((await localSrs.listAll(USER)).map((c) => [c.id, c.front]));
+    const byId = new Map((await localSrs.listAll(USER, COURSE)).map((c) => [c.id, c.front]));
     expect(byId.get("a")).toBe("local");
     expect(byId.get("b")).toBe("servidor");
     expect(await queue.pending(USER).then((q) => q.operations)).toHaveLength(1);
   });
 
   it("sync concorrente roda uma vez so", async () => {
-    await localSrs.upsertMany(USER, [card("a")]);
+    await localSrs.upsertMany(USER, COURSE, [card("a")]);
 
-    const [first, second] = await Promise.all([engine.sync(USER), engine.sync(USER)]);
+    const [first, second] = await Promise.all([
+      engine.sync(USER, COURSE),
+      engine.sync(USER, COURSE),
+    ]);
 
     expect(first).toBe(second);
     expect(upsertCalls).toBe(1);
@@ -193,22 +197,22 @@ describe("SyncEngine", () => {
       revision: 0,
       lastError: null,
     });
-    await localSrs.upsertMany(USER, [card("ok")]);
-    await remoteSrs.upsertMany(USER, [card("x", "servidor"), card("y", "servidor")]);
+    await localSrs.upsertMany(USER, COURSE, [card("ok")]);
+    await remoteSrs.upsertMany(USER, COURSE, [card("x", "servidor"), card("y", "servidor")]);
 
-    const report = await engine.sync(USER);
+    const report = await engine.sync(USER, COURSE);
 
     expect(report.error).toMatch(/invalida/);
     expect(report.pushed).toBe(1);
     expect(report.pulled).not.toBeNull();
     expect(await db.outbox.count()).toBe(1);
-    const ids = (await localSrs.listAll(USER)).map((c) => c.id).sort();
+    const ids = (await localSrs.listAll(USER, COURSE)).map((c) => c.id).sort();
     expect(ids).toEqual(["ok", "y"]);
   });
 
   it("para na primeira falha e preserva a ordem", async () => {
-    await localSrs.upsertMany(USER, [card("a")]);
-    await new DexieStreakRepository(db, new FixedClock(NOW)).save(USER, {
+    await localSrs.upsertMany(USER, COURSE, [card("a")]);
+    await new DexieStreakRepository(db, new FixedClock(NOW)).save(USER, COURSE, {
       current: 1,
       best: 1,
       shieldsLeft: 2,
@@ -216,7 +220,7 @@ describe("SyncEngine", () => {
     });
     remoteDown = true;
 
-    const report = await engine.push(USER);
+    const report = await engine.push(USER, COURSE);
 
     expect(report).toEqual({ pushed: 0, error: "sem rede", invalid: [] });
     expect(await queue.pending(USER).then((q) => q.operations)).toHaveLength(2);
@@ -225,12 +229,12 @@ describe("SyncEngine", () => {
 
 describe("SyncEngine - corrida entre leitura remota e gravacao local", () => {
   it("edicao local feita depois da leitura do servidor sobrevive ao pull", async () => {
-    await remoteSrs.upsertMany(USER, [card("a", "servidor"), card("b", "servidor")]);
-    duringRemoteRead = () => localSrs.upsertMany(USER, [card("a", "local")]);
+    await remoteSrs.upsertMany(USER, COURSE, [card("a", "servidor"), card("b", "servidor")]);
+    duringRemoteRead = () => localSrs.upsertMany(USER, COURSE, [card("a", "local")]);
 
-    await engine.pull(USER);
+    await engine.pull(USER, COURSE);
 
-    const byId = new Map((await localSrs.listAll(USER)).map((c) => [c.id, c.front]));
+    const byId = new Map((await localSrs.listAll(USER, COURSE)).map((c) => [c.id, c.front]));
     expect(byId.get("a")).toBe("local");
     expect(byId.get("b")).toBe("servidor");
     expect(await queue.pending(USER).then((q) => q.operations)).toHaveLength(1);
@@ -239,45 +243,45 @@ describe("SyncEngine - corrida entre leitura remota e gravacao local", () => {
 
 describe("SyncEngine - edicao durante o envio", () => {
   it("ack nao apaga a edicao feita durante o envio; o proximo push a envia", async () => {
-    await localSrs.upsertMany(USER, [card("a", "v1")]);
+    await localSrs.upsertMany(USER, COURSE, [card("a", "v1")]);
     duringUpsert = async () => {
       duringUpsert = null;
-      await localSrs.upsertMany(USER, [card("a", "v2")]);
+      await localSrs.upsertMany(USER, COURSE, [card("a", "v2")]);
     };
 
-    const first = await engine.push(USER);
+    const first = await engine.push(USER, COURSE);
 
     expect(first).toMatchObject({ pushed: 1, error: null });
     const pending = await queue.pending(USER).then((q) => q.operations);
     expect(pending).toHaveLength(1);
     expect(pending[0]?.operation.payload).toMatchObject({ front: "v2" });
 
-    await engine.pull(USER);
-    expect((await localSrs.listAll(USER))[0]?.front).toBe("v2");
+    await engine.pull(USER, COURSE);
+    expect((await localSrs.listAll(USER, COURSE))[0]?.front).toBe("v2");
 
-    await engine.push(USER);
+    await engine.push(USER, COURSE);
     expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
-    expect((await remoteSrs.listAll(USER))[0]?.front).toBe("v2");
+    expect((await remoteSrs.listAll(USER, COURSE))[0]?.front).toBe("v2");
   });
 });
 
 describe("SyncEngine - reconexao durante um sync em curso", () => {
   it("chamada que chega durante um sync que falha gera nova rodada que envia", async () => {
-    await localSrs.upsertMany(USER, [card("a", "v1")]);
+    await localSrs.upsertMany(USER, COURSE, [card("a", "v1")]);
     let reconnect: Promise<unknown> = Promise.resolve();
     duringUpsert = async () => {
       duringUpsert = null;
-      reconnect = engine.sync(USER);
+      reconnect = engine.sync(USER, COURSE);
       throw new Error("conexao caiu");
     };
 
-    const report = await engine.sync(USER);
+    const report = await engine.sync(USER, COURSE);
     await reconnect;
 
     expect(upsertCalls).toBe(2);
     expect(report.error).toBeNull();
     expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
-    expect((await remoteSrs.listAll(USER))[0]?.front).toBe("v1");
+    expect((await remoteSrs.listAll(USER, COURSE))[0]?.front).toBe("v1");
   });
 });
 
@@ -285,23 +289,47 @@ describe("SyncEngine - robustez do relatorio", () => {
   it("falha de leitura da fila vira erro no relatorio em vez de rejeitar", async () => {
     vi.spyOn(queue, "pending").mockRejectedValue(new Error("indexeddb indisponivel"));
 
-    const report = await engine.sync(USER);
+    const report = await engine.sync(USER, COURSE);
 
     expect(report).toEqual({ pushed: 0, pulled: null, error: "indexeddb indisponivel" });
     vi.restoreAllMocks();
   });
 
   it("soma o pushed das rodadas quando ha nova rodada", async () => {
-    await localSrs.upsertMany(USER, [card("a")]);
+    await localSrs.upsertMany(USER, COURSE, [card("a")]);
     duringUpsert = async () => {
       duringUpsert = null;
-      void engine.sync(USER);
-      await localSrs.upsertMany(USER, [card("b")]);
+      void engine.sync(USER, COURSE);
+      await localSrs.upsertMany(USER, COURSE, [card("b")]);
     };
 
-    const report = await engine.sync(USER);
+    const report = await engine.sync(USER, COURSE);
 
     expect(report.pushed).toBe(2);
     expect(await queue.pending(USER).then((q) => q.operations)).toEqual([]);
+  });
+
+  it("recusa curso sem armazenamento offline e nao toca na fila", async () => {
+    await localSrs.upsertMany(USER, COURSE, [card("a")]);
+
+    await expect(engine.sync(USER, "vmw")).rejects.toThrow(/offline.*"vmw"/);
+
+    expect(upsertCalls).toBe(0);
+    expect(await queue.pending(USER).then((q) => q.operations)).toHaveLength(1);
+  });
+
+  it("sync de curso sem offline falha mesmo com outro sync em andamento", async () => {
+    await localSrs.upsertMany(USER, COURSE, [card("a")]);
+    const running = engine.sync(USER, COURSE);
+
+    await expect(engine.sync(USER, "vmw")).rejects.toThrow(/offline.*"vmw"/);
+
+    await running;
+  });
+
+  it("push e pull publicos tambem recusam curso sem offline", async () => {
+    await expect(engine.push(USER, "vmw")).rejects.toThrow(/offline.*"vmw"/);
+    await expect(engine.pull(USER, "vmw")).rejects.toThrow(/offline.*"vmw"/);
+    expect(upsertCalls).toBe(0);
   });
 });

@@ -1,7 +1,9 @@
 import type { TopicMastery } from "@/domain/entities/student";
+import type { CourseId } from "@/domain/value-objects/course-id";
 import type { ClockPort } from "@/domain/ports/clock.port";
 import type { TopicMasteryRepositoryPort } from "@/domain/ports/student-repository.port";
 import type { LocalDatabase, LocalTopicMastery } from "./local-db";
+import { assertOfflineCourse } from "./offline-course";
 import { OfflineQueue } from "./offline-queue";
 
 export class DexieTopicMasteryRepository implements TopicMasteryRepositoryPort {
@@ -14,12 +16,14 @@ export class DexieTopicMasteryRepository implements TopicMasteryRepositoryPort {
     this.queue = new OfflineQueue(db, clock);
   }
 
-  async list(userId: string): Promise<readonly TopicMastery[]> {
+  async list(userId: string, courseId: CourseId): Promise<readonly TopicMastery[]> {
+    assertOfflineCourse(courseId);
     const rows = await this.db.topicMastery.where("userId").equals(userId).toArray();
     return rows.map(toMastery);
   }
 
-  async upsert(userId: string, mastery: TopicMastery): Promise<void> {
+  async upsert(userId: string, courseId: CourseId, mastery: TopicMastery): Promise<void> {
+    assertOfflineCourse(courseId);
     await this.db.transaction("rw", this.db.topicMastery, this.db.outbox, async () => {
       await this.db.topicMastery.put(this.toRow(userId, mastery));
       await this.queue.enqueue(userId, { kind: "topicMastery.upsert", payload: mastery });

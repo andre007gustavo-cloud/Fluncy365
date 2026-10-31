@@ -21,7 +21,7 @@ export type Database = {
         Insert: {
           by_service?: Json;
           calls?: number;
-          course_id?: string;
+          course_id: string;
           day: string;
           input_tokens?: number;
           output_tokens?: number;
@@ -46,6 +46,50 @@ export type Database = {
           },
         ];
       };
+      agent_eval_runs: {
+        Row: {
+          batch_ref: string;
+          course_id: string;
+          created_at: string;
+          id: string;
+          model: string;
+          passed_cases: number;
+          prompt_version: string;
+          results: Json;
+          total_cases: number;
+        };
+        Insert: {
+          batch_ref: string;
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          model: string;
+          passed_cases: number;
+          prompt_version: string;
+          results?: Json;
+          total_cases: number;
+        };
+        Update: {
+          batch_ref?: string;
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          model?: string;
+          passed_cases?: number;
+          prompt_version?: string;
+          results?: Json;
+          total_cases?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "agent_eval_runs_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       content_jw_refs: {
         Row: {
           course_id: string;
@@ -58,7 +102,7 @@ export type Database = {
           url: string;
         };
         Insert: {
-          course_id?: string;
+          course_id: string;
           id: string;
           level: number;
           minutes: number;
@@ -103,7 +147,7 @@ export type Database = {
         };
         Insert: {
           blocks?: Json;
-          course_id?: string;
+          course_id: string;
           created_at?: string;
           day_index: number;
           exercises?: Json;
@@ -159,7 +203,7 @@ export type Database = {
           week: number;
         };
         Insert: {
-          course_id?: string;
+          course_id: string;
           grammar_topics?: string[];
           id: string;
           jw_refs?: string[];
@@ -187,6 +231,202 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "content_units_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      corpus_documents: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          paragraphs_pt: Json;
+          paragraphs_vmw: Json;
+          processing_status: string;
+          source_ref: string;
+          title_pt: string;
+          title_vmw: string;
+          updated_at: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          kind: string;
+          paragraphs_pt?: Json;
+          paragraphs_vmw?: Json;
+          processing_status?: string;
+          source_ref: string;
+          title_pt: string;
+          title_vmw: string;
+          updated_at?: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          paragraphs_pt?: Json;
+          paragraphs_vmw?: Json;
+          processing_status?: string;
+          source_ref?: string;
+          title_pt?: string;
+          title_vmw?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "corpus_documents_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      corpus_lessons: {
+        Row: {
+          content: Json;
+          course_id: string;
+          created_at: string;
+          id: string;
+          lesson_key: string;
+          prompt_version: string;
+          version: number;
+        };
+        Insert: {
+          content: Json;
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          lesson_key: string;
+          prompt_version: string;
+          version?: number;
+        };
+        Update: {
+          content?: Json;
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          lesson_key?: string;
+          prompt_version?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "corpus_lessons_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      corpus_media: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          document_id: string;
+          duration_seconds: number | null;
+          id: string;
+          kind: string;
+          lang: string;
+          storage_path: string;
+          subtitle_path: string | null;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          document_id: string;
+          duration_seconds?: number | null;
+          id?: string;
+          kind: string;
+          lang: string;
+          storage_path: string;
+          subtitle_path?: string | null;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          document_id?: string;
+          duration_seconds?: number | null;
+          id?: string;
+          kind?: string;
+          lang?: string;
+          storage_path?: string;
+          subtitle_path?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "corpus_media_course_id_document_id_fkey";
+            columns: ["course_id", "document_id"];
+            isOneToOne: false;
+            referencedRelation: "corpus_documents";
+            referencedColumns: ["course_id", "id"];
+          },
+          {
+            foreignKeyName: "corpus_media_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      corpus_segments: {
+        Row: {
+          alignment_note: string | null;
+          alignment_score: number;
+          course_id: string;
+          created_at: string;
+          document_id: string;
+          id: string;
+          paragraph_no: number;
+          position: number;
+          text_normalized: string;
+          text_pt: string;
+          text_vmw: string;
+        };
+        Insert: {
+          alignment_note?: string | null;
+          alignment_score: number;
+          course_id: string;
+          created_at?: string;
+          document_id: string;
+          id?: string;
+          paragraph_no: number;
+          position: number;
+          text_normalized: string;
+          text_pt: string;
+          text_vmw: string;
+        };
+        Update: {
+          alignment_note?: string | null;
+          alignment_score?: number;
+          course_id?: string;
+          created_at?: string;
+          document_id?: string;
+          id?: string;
+          paragraph_no?: number;
+          position?: number;
+          text_normalized?: string;
+          text_pt?: string;
+          text_vmw?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "corpus_segments_course_id_document_id_fkey";
+            columns: ["course_id", "document_id"];
+            isOneToOne: false;
+            referencedRelation: "corpus_documents";
+            referencedColumns: ["course_id", "id"];
+          },
+          {
+            foreignKeyName: "corpus_segments_course_id_fkey";
             columns: ["course_id"];
             isOneToOne: false;
             referencedRelation: "courses";
@@ -231,7 +471,7 @@ export type Database = {
         Insert: {
           code: string;
           count?: number;
-          course_id?: string;
+          course_id: string;
           example?: string;
           last_at?: string;
           skill: Database["public"]["Enums"]["skill"];
@@ -269,7 +509,7 @@ export type Database = {
         };
         Insert: {
           avatar_stage?: number;
-          course_id?: string;
+          course_id: string;
           evolution_xp?: number;
           streak?: Json;
           unlocked_traits?: string[];
@@ -294,6 +534,380 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "courses";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      grammar_patterns: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          example_segment_ids: string[];
+          explanation_pt: string;
+          frequency: number;
+          id: string;
+          pattern: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          example_segment_ids?: string[];
+          explanation_pt: string;
+          frequency?: number;
+          id?: string;
+          pattern: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          example_segment_ids?: string[];
+          explanation_pt?: string;
+          frequency?: number;
+          id?: string;
+          pattern?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "grammar_patterns_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      informant_answers: {
+        Row: {
+          answer: string;
+          answered_at: string;
+          course_id: string;
+          created_at: string;
+          id: string;
+          question_id: string;
+          user_id: string;
+        };
+        Insert: {
+          answer: string;
+          answered_at?: string;
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          question_id: string;
+          user_id: string;
+        };
+        Update: {
+          answer?: string;
+          answered_at?: string;
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          question_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "informant_answers_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "informant_answers_course_id_question_id_fkey";
+            columns: ["course_id", "question_id"];
+            isOneToOne: false;
+            referencedRelation: "informant_questions";
+            referencedColumns: ["course_id", "id"];
+          },
+        ];
+      };
+      informant_questions: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          id: string;
+          origin: string;
+          priority: number;
+          question: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          origin: string;
+          priority?: number;
+          question: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          origin?: string;
+          priority?: number;
+          question?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "informant_questions_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lexicon_contests: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          entry_id: string;
+          id: string;
+          reason: string;
+          user_id: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          entry_id: string;
+          id?: string;
+          reason: string;
+          user_id: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          entry_id?: string;
+          id?: string;
+          reason?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lexicon_contests_course_id_entry_id_fkey";
+            columns: ["course_id", "entry_id"];
+            isOneToOne: false;
+            referencedRelation: "lexicon_entries";
+            referencedColumns: ["course_id", "id"];
+          },
+          {
+            foreignKeyName: "lexicon_contests_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lexicon_entries: {
+        Row: {
+          contest_count: number;
+          course_id: string;
+          created_at: string;
+          distinct_docs: number;
+          form: string;
+          form_normalized: string;
+          id: string;
+          occurrences: number;
+          root_guess: string | null;
+          senses: string[];
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          contest_count?: number;
+          course_id: string;
+          created_at?: string;
+          distinct_docs?: number;
+          form: string;
+          form_normalized: string;
+          id?: string;
+          occurrences?: number;
+          root_guess?: string | null;
+          senses?: string[];
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          contest_count?: number;
+          course_id?: string;
+          created_at?: string;
+          distinct_docs?: number;
+          form?: string;
+          form_normalized?: string;
+          id?: string;
+          occurrences?: number;
+          root_guess?: string | null;
+          senses?: string[];
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lexicon_entries_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lexicon_evidence: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          entry_id: string;
+          id: string;
+          segment_id: string;
+          sense: string;
+          supports: boolean;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          entry_id: string;
+          id?: string;
+          segment_id: string;
+          sense: string;
+          supports: boolean;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          entry_id?: string;
+          id?: string;
+          segment_id?: string;
+          sense?: string;
+          supports?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lexicon_evidence_course_id_entry_id_fkey";
+            columns: ["course_id", "entry_id"];
+            isOneToOne: false;
+            referencedRelation: "lexicon_entries";
+            referencedColumns: ["course_id", "id"];
+          },
+          {
+            foreignKeyName: "lexicon_evidence_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lexicon_evidence_course_id_segment_id_fkey";
+            columns: ["course_id", "segment_id"];
+            isOneToOne: false;
+            referencedRelation: "corpus_segments";
+            referencedColumns: ["course_id", "id"];
+          },
+        ];
+      };
+      media_clips: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          end_ms: number;
+          id: string;
+          media_id: string;
+          scope: string;
+          segment_id: string;
+          start_ms: number;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          end_ms: number;
+          id?: string;
+          media_id: string;
+          scope: string;
+          segment_id: string;
+          start_ms: number;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          end_ms?: number;
+          id?: string;
+          media_id?: string;
+          scope?: string;
+          segment_id?: string;
+          start_ms?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "media_clips_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "media_clips_course_id_media_id_fkey";
+            columns: ["course_id", "media_id"];
+            isOneToOne: false;
+            referencedRelation: "corpus_media";
+            referencedColumns: ["course_id", "id"];
+          },
+          {
+            foreignKeyName: "media_clips_course_id_segment_id_fkey";
+            columns: ["course_id", "segment_id"];
+            isOneToOne: false;
+            referencedRelation: "corpus_segments";
+            referencedColumns: ["course_id", "id"];
+          },
+        ];
+      };
+      phrasebook_entries: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          id: string;
+          phrase_pt: string;
+          phrase_vmw: string;
+          recording_media_id: string | null;
+          situation: string;
+          status: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          phrase_pt: string;
+          phrase_vmw: string;
+          recording_media_id?: string | null;
+          situation: string;
+          status?: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          phrase_pt?: string;
+          phrase_vmw?: string;
+          recording_media_id?: string | null;
+          situation?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "phrasebook_entries_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "phrasebook_entries_course_id_recording_media_id_fkey";
+            columns: ["course_id", "recording_media_id"];
+            isOneToOne: false;
+            referencedRelation: "corpus_media";
+            referencedColumns: ["course_id", "id"];
           },
         ];
       };
@@ -338,7 +952,7 @@ export type Database = {
         };
         Insert: {
           back: string;
-          course_id?: string;
+          course_id: string;
           created_at?: string;
           due_at?: string;
           ease?: number;
@@ -384,7 +998,7 @@ export type Database = {
           vocab_size: number;
         };
         Insert: {
-          course_id?: string;
+          course_id: string;
           levels?: Json;
           pace?: Json;
           updated_at?: string;
@@ -424,7 +1038,7 @@ export type Database = {
         };
         Insert: {
           completed?: boolean;
-          course_id?: string;
+          course_id: string;
           day: string;
           duration_sec?: number;
           plan?: Json;
@@ -470,7 +1084,7 @@ export type Database = {
         Insert: {
           accuracy?: number;
           attempts?: number;
-          course_id?: string;
+          course_id: string;
           last_seen?: string | null;
           sessions?: number;
           status?: Database["public"]["Enums"]["topic_status"];

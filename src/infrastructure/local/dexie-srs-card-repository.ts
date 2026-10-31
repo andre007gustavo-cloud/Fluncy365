@@ -1,8 +1,10 @@
 import Dexie from "dexie";
 import type { SrsCard } from "@/domain/entities/srs-card";
+import type { CourseId } from "@/domain/value-objects/course-id";
 import type { ClockPort } from "@/domain/ports/clock.port";
 import type { SrsCardRepositoryPort } from "@/domain/ports/student-repository.port";
 import type { LocalDatabase, LocalSrsCard } from "./local-db";
+import { assertOfflineCourse } from "./offline-course";
 import { OfflineQueue } from "./offline-queue";
 
 export class DexieSrsCardRepository implements SrsCardRepositoryPort {
@@ -15,12 +17,19 @@ export class DexieSrsCardRepository implements SrsCardRepositoryPort {
     this.queue = new OfflineQueue(db, clock);
   }
 
-  async listAll(userId: string): Promise<readonly SrsCard[]> {
+  async listAll(userId: string, courseId: CourseId): Promise<readonly SrsCard[]> {
+    assertOfflineCourse(courseId);
     const rows = await this.db.srsCards.where("userId").equals(userId).toArray();
     return rows.map(toCard);
   }
 
-  async listDue(userId: string, now: Date, limit: number): Promise<readonly SrsCard[]> {
+  async listDue(
+    userId: string,
+    courseId: CourseId,
+    now: Date,
+    limit: number,
+  ): Promise<readonly SrsCard[]> {
+    assertOfflineCourse(courseId);
     if (limit <= 0) return [];
     const rows = await this.db.srsCards
       .where("[userId+dueAt]")
@@ -30,7 +39,8 @@ export class DexieSrsCardRepository implements SrsCardRepositoryPort {
     return rows.map(toCard);
   }
 
-  async upsertMany(userId: string, cards: readonly SrsCard[]): Promise<void> {
+  async upsertMany(userId: string, courseId: CourseId, cards: readonly SrsCard[]): Promise<void> {
+    assertOfflineCourse(courseId);
     await this.db.transaction("rw", this.db.srsCards, this.db.outbox, async () => {
       await this.db.srsCards.bulkPut(this.toRows(userId, cards));
       for (const card of cards) {
